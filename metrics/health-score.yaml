@@ -1,0 +1,162 @@
+# Team Health Score Metrics - GoClaw Team Setup
+# Phase C Medium Improvement #9: Metrics dashboard spec
+
+health_metrics:
+  availability:
+    heartbeat_success_rate:
+      target: ">= 95%"
+      warning_threshold: "90-95%"
+      error_threshold: "< 90%"
+      description: "Ty le heartbeat thanh cong trong 5 phut gan nhat"
+
+    average_response_time:
+      target: "<= 60s"
+      warning_threshold: "60-120s"
+      error_threshold: "> 120s"
+      description: "Thoi gian trung binh tu nhan task den response dau tien"
+
+  quality:
+    verification_pass_rate:
+      target: ">= 98%"
+      warning_threshold: "95-98%"
+      error_threshold: "< 95%"
+      description: "Ty le verify script pass tren tong so lan chay"
+
+    blocker_resolution_time:
+      target: "<= 30m"
+      warning_threshold: "30-60m"
+      error_threshold: "> 60m"
+      description: "Thoi gian trung binh de giai quyet task bi block"
+
+  efficiency:
+    task_completion_rate:
+      target: ">= 90%"
+      warning_threshold: "80-90%"
+      error_threshold: "< 80%"
+      description: "Ty le task hoan thanh thanh cong tren tong so task"
+
+    rework_rate:
+      target: "<= 5%"
+      warning_threshold: "5-10%"
+      error_threshold: "> 10%"
+      description: "Ty le task can lam lai do loi chat luong"
+
+    resource_utilization:
+      target: "70-85%"
+      warning_threshold: "50-70% or 85-95%"
+      error_threshold: "< 50% or >= 95%"
+      description: "Muc su dung tai nguyen cua team (CPU, memory, locks)"
+
+# Alerting rules
+alerting_rules:
+  critical:
+    - metric: "heartbeat_success_rate"
+      condition: "< 90%"
+      duration: "5m"
+      notification: ["immediate", "lead", "manager"]
+
+    - metric: "verification_pass_rate"
+      condition: "< 95%"
+      duration: "10m"
+      notification: ["immediate", "lead"]
+
+    - metric: "task_completion_rate"
+      condition: "< 80%"
+      duration: "15m"
+      notification: ["immediate", "lead", "manager"]
+
+  warning:
+    - metric: "average_response_time"
+      condition: "> 120s"
+      duration: "5m"
+      notification: ["scheduled", "lead"]
+
+    - metric: "blocker_resolution_time"
+      condition: "> 60m"
+      duration: "10m"
+      notification: ["daily", "lead"]
+
+    - metric: "rework_rate"
+      condition: "> 10%"
+      duration: "1h"
+      notification: ["daily", "lead"]
+
+# Reporting configuration
+reporting:
+  frequency:
+    real_time: "metrics streaming"
+    summary: "every 5 minutes"
+    detailed: "hourly"
+    executive: "daily"
+
+  recipients:
+    real_time: ["lead"]
+    summary: ["lead", "manager"]
+    detailed: ["lead", "manager", "team"]
+    executive: ["manager", "executive"]
+
+  channels:
+    dashboard: true
+    email: true
+    chat: true
+    api: true
+
+# Scoring algorithm
+scoring_algorithm:
+  weights:
+    availability_weight: 0.4
+    quality_weight: 0.4
+    efficiency_weight: 0.2
+
+  calculation:
+    formula: "(availability_score * 0.4) + (quality_score * 0.4) + (efficiency_score * 0.2)"
+    scale: "0-100"
+    rating:
+      excellent: "90-100"
+      good: "75-89"
+      fair: "60-74"
+      poor: "< 60"
+
+# Historical tracking
+historical_tracking:
+  retention_periods:
+    real_time: "24h"
+    hourly: "7d"
+    daily: "30d"
+    weekly: "90d"
+    monthly: "1y"
+
+  aggregation:
+    hourly: "avg/max/min"
+    daily: "avg/percentile_95/percentile_5"
+    weekly: "avg/median"
+    monthly: "summary"
+
+# Custom dashboards
+dashboards:
+  team_health:
+    metrics:
+      - "heartbeat_success_rate"
+      - "task_completion_rate"
+      - "average_response_time"
+      - "overall_health_score"
+    refresh_interval: "30s"
+    alert_badges: true
+
+  performance:
+    metrics:
+      - "verification_pass_rate"
+      - "blocker_resolution_time"
+      - "rework_rate"
+      - "resource_utilization"
+    refresh_interval: "1m"
+    trend_indicators: true
+
+  executive_summary:
+    metrics:
+      - "overall_health_score"
+      - "key_trends"
+      - "top_issues"
+      - "improvement_areas"
+    refresh_interval: "15m"
+    executive_format: true

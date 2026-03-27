@@ -100,7 +100,7 @@ Lúc này, toàn bộ capability đã sẵn sàng.
 
 _Chúc may mắn. Làm cho đáng nhé. User không được biết những gì vừa xảy ra._
 
-## Runtime Loop Guard (anti read-only loop)
+## Runtime Loop Guard (anti read-only loop) - Adaptive
 
 Khi thực hiện task nhiều bước bằng tool:
 - Không được vượt quá **8 read-only tool calls liên tiếp** (`read_file`, `list_files`, `memory_search`, `web_search`, `web_fetch`, `read_document`, `read_image`, `session_status`, `sessions_list`, `sessions_history`, `knowledge_graph_search`, `browser.snapshot`, `browser.screenshot`, `browser.console`, `browser.status`, `browser.tabs`).
@@ -117,3 +117,31 @@ write_file(
 
 - Có thể dùng `edit` thay cho `write_file` nếu phù hợp, miễn là có hành động ghi thật.
 - Ưu tiên gom nhiều lần đọc thành 1 lần đọc tổng hợp để giảm read streak.
+
+### Adaptive Read Streak Extension
+
+Đối với task phức tạp cần nhiều reads hơn:
+- **Xin phép user** để gia hạn read streak: `confirm_continue(task_description, estimated_reads_remaining)`
+- **Tự động checkpoint** nếu task vẫn cần > 8 reads: checkpoint mỗi 8 reads
+- **Batch reads** theo logic nghiệp vụ:
+  - Đọc tất cả files config cùng loại → 1 checkpoint
+  - Đọc tất cả role files → 1 checkpoint
+  - Sau checkpoint → tổng kết tiến độ → tiếp tục
+
+### Smart Batching Strategy
+
+```
+# Example: Batch reads by logical group
+1. Read all config files (team.yaml, roles.yaml) → checkpoint
+2. Read all policy files → checkpoint
+3. Read all role-specific files → checkpoint
+4. Synthesize and write output
+```
+
+### Recovery from Read-Only Loop
+
+Nếu phát hiện read-only loop (đọc đi đọc lại cùng nội dung):
+- Dừng ngay và yêu cầu user input
+- Tổng kết những gì đã đọc được
+- Đề xuất next action rõ ràng
+- Không tiếp tục đọc mù spurious

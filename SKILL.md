@@ -28,7 +28,7 @@ Use this skill when user asks to:
 
 ## Mandatory Invariants (non-negotiable)
 1. `team_roles == raci_roles == acl_roles == workflow_roles`
-2. Runtime package must exclude `templates/` and `references/` by default
+2. Runtime package must exclude `references/` by default
 3. No DONE state without BOTH:
    - `VERIFY_TEAM_PACK_REPORT.md`
    - `DIFF_REPORT.md`
@@ -50,6 +50,9 @@ If any condition fails, force one of:
 - Keep execution alive with checkpoint artifacts every <= 5 minutes
 - If a 5-minute boundary passes without new evidence checkpoint -> `BLOCKED_NO_EVIDENCE`
 - Never close by intent/status text only; close by artifact proof only
+- Enforce resource lock timeout: shared write locks auto-release after 10 minutes if no heartbeat
+- Validate state transitions: enforce allowed state machine transitions per workflow
+- Monitor for stale locks: detect and recover from abandoned resource locks
 
 ## Fast Execution Mode
 Use single-pass and fail-fast pipeline:
@@ -114,13 +117,17 @@ Per-role required context files:
 - Schema fail in IDENTITY or AGENTS I-L-O-C
 - Semantic drift vs selected `team_type`
 - Missing evidence pair (`VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md`)
+- Invalid state transition (violates allowed state machine transitions)
+- Resource lock timeout (shared write lock held > 10 minutes without heartbeat)
+- Stale lock detection (abandoned resource lock without release)
+- Missing lock timeout policy in `policies/resource-contention.yaml`
 
 ## Verify Workflow (single-pass)
 1. Collect all paths once
 2. Validate locklist completeness
 3. Validate role-map consistency (roles/raci/acl/workflow)
 4. Validate per-role schema + semantic alignment
-5. Validate packaging cleanliness (runtime excludes references/templates)
+5. Validate packaging cleanliness (runtime excludes references)
 6. Emit verification table: `path | expected | actual | status`
 7. Write:
    - `VERIFY_TEAM_PACK_REPORT.md`

@@ -1,0 +1,58 @@
+# Escalation Matrix - GoClaw Team Setup
+# Phase A Critical Fix #1: Owner rõ ràng cho mỗi severity level
+
+escalation_levels:
+  1: # Critical - System down hoặc severe impact
+    timeout_minutes: 5
+    owners: ["lead", "manager"]
+    auto_reassign: true
+    notification_channels: ["immediate", "email"]
+    description: "Phản hồi trong 5 phút, tự động reassign nếu không có response"
+
+  2: # High - High impact, blocking progress
+    timeout_minutes: 15
+    owners: ["lead"]
+    auto_reassign: false
+    notification_channels: ["immediate"]
+    description: "Phản hồi trong 15 phút, escalation lên manager nếu quá 30 phút"
+
+  3: # Medium - Moderate impact, manual escalation
+    timeout_minutes: 60
+    owners: ["lead"]
+    auto_reassign: false
+    notification_channels: ["scheduled"]
+    description: "Phản hồi trong 1 giờ, log vào daily report"
+
+  4: # Low - Minor issues, log only
+    timeout_minutes: 240
+    owners: ["log_only"]
+    auto_reassign: false
+    notification_channels: ["none"]
+    description: "Log vào backlog, review trong weekly planning"
+
+sla_standards:
+  critical_response: 5m
+  high_response: 15m
+  medium_response: 1h
+  low_response: 4h
+
+escalation_chain:
+  default:
+    level_1: "lead"
+    level_2: "manager"
+    level_3: "admin"
+
+  incident:
+    level_1: "incident-commander"
+    level_2: "engineering-lead"
+    level_3: "cto"
+
+recovery_actions:
+  timeout_breach:
+    - log_incident: true
+    - notify_next_level: true
+    - create_incident_ticket: true
+
+  auto_reassign_trigger:
+    severity_1_only: true
+    wait_for_ack: false

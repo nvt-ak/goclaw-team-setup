@@ -1,0 +1,171 @@
+# Retry Policy & Circuit Breaker - GoClaw Team Setup
+# Phase B High Impact #5: Chống cascade failure từ external dependencies
+
+retry_policies:
+  external_api:
+    # Chính sách cho các API bên ngoài (GitHub, web search, etc)
+    max_attempts: 3
+    backoff_base: 2
+    backoff_max_seconds: 60
+    backoff_jitter: true  # Thêm jitter tránh thundering herd
+    timeout_seconds: 30
+    retryable_errors:
+      - "timeout"
+      - "connection_error"
+      - "rate_limit_exceeded"
+      - "server_error_5xx"
+
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 5  # 5 lỗi liên tiếp kích hoạt CB
+      reset_timeout_seconds: 300  # 5 phút sau tự reset
+      success_threshold: 3  # 3 thành công liên tiếp đóng CB
+
+      states:
+        closed:
+          description: "Hoạt động bình thường"
+          conditions:
+            - "failure_count < failure_threshold"
+        open:
+          description: "Ngắt kết nối, không retry"
+          conditions:
+            - "failure_count >= failure_threshold"
+            - "last_failure_time > now - reset_timeout_seconds"
+          actions:
+            - "return_fallback_immediately"
+            - "log_circuit_opened"
+        half_open:
+          description: "Thử lại cẩn trọng"
+          conditions:
+            - "failure_count >= failure_threshold"
+            - "last_failure_time <= now - reset_timeout_seconds"
+          actions:
+            - "allow_one_request"
+            - "monitor_result"
+
+  local_tool:
+    # Chính sách cho các công cụ local (bash, python scripts, etc)
+    max_attempts: 2
+    backoff_base: 1.5
+    backoff_max_seconds: 10
+    timeout_seconds: 60
+    retryable_errors:
+      - "temporary_file_locked"
+      - "resource_busy"
+      - "quota_exceeded_temporary"
+
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 3
+      reset_timeout_seconds: 60
+      success_threshold: 2
+
+  file_operations:
+    # Chính sách cho các thao tác file (read/write)
+    max_attempts: 3
+    backoff_base: 1.2
+    backoff_max_seconds: 5
+    timeout_seconds: 10
+    retryable_errors:
+      - "file_locked"
+      - "disk_full_temporary"
+      - "permission_denied_temporary"
+
+    circuit_breaker:
+      enabled: false  # Không cần circuit breaker cho file ops
+
+# Fallback strategies
+fallback_strategies:
+  external_api:
+    strategy: "cache_then_skip"
+    cache_duration_seconds: 300  # 5 phút cache
+    cache_on_failure: true
+    fallback_responses:
+      - "cached_result_if_available"
+      - "default_empty_response"
+      - "graceful_degradation_message"
+
+  web_search:
+    strategy: "skip_and_notify"
+    notify_on_skip: true
+    skip_duration_seconds: 300
+    fallback_message: "Web search temporarily unavailable, continuing with available context"
+
+  github_api:
+    strategy: "local_cache_or_skip"
+    cache_duration_seconds: 1800  # 30 phút cache
+    fallback_responses:
+      - "cached_repo_metadata"
+      - "skip_sync_operation"
+      - "graceful_degradation_message"
+
+  file_system:
+    strategy: "in_memory_cache"
+    cache_duration_seconds: 60
+    fallback_responses:
+      - "cached_file_content"
+      - "empty_response_with_warning"
+
+# Circuit breaker integration
+circuit_breaker_integration:
+  external_services:
+    github_api:
+      failure_threshold: 3
+      reset_timeout_seconds: 300
+      fallback_strategy: "cache_or_skip"
+      should_log_incident: true
+
+    web_search:
+      failure_threshold: 5
+      reset_timeout_seconds: 600
+      fallback_strategy: "skip_and_notify"
+      should_log_incident: false
+
+    git_operations:
+      failure_threshold: 2
+      reset_timeout_seconds: 120
+      fallback_strategy: "local_only"
+      should_log_incident: true
+
+  internal_services:
+    file_locks:
+      failure_threshold: 10
+      reset_timeout_seconds: 60
+      fallback_strategy: "queue_and_retry"
+      should_log_incident: true
+
+    memory_store:
+      failure_threshold: 5
+      reset_timeout_seconds: 30
+      fallback_strategy: "ephemeral_storage"
+      should_log_incident: true
+
+# Monitoring
+monitoring:
+  metrics:
+    - "retry_attempts_count"
+    - "circuit_breaker_state"
+    - "fallback_usage_count"
+    - "success_rate_after_retry"
+
+  alerts:
+    high_retry_rate: "> 20% of requests require max retries"
+    circuit_opened: "Notify when circuit breaker opens"
+    fallback_frequent: "Notify when fallback used > 50% of time"
+
+# Adaptive policies
+adaptive_policies:
+  # Điều chỉnh retry dựa trên thời gian thực
+  load_based:
+    enabled: true
+    backoff_multiplier:
+      low_load: 0.8  # Nhanh hơn khi ít tải
+      medium_load: 1.0
+      high_load: 1.5  # Chậm hơn khi tải cao
+
+  time_based:
+    enabled: true
+    business_hours:
+      backoff_multiplier: 1.0
+    off_hours:
+      backoff_multiplier: 1.2  # Thận trọng hơn ngoài giờ hành chính

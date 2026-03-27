@@ -1,0 +1,234 @@
+# Main Workflow - GoClaw Team Setup
+# Phase A Critical Fix #3: State transition guards để đảm bảo đúng state machine
+
+# State machine definition
+state_machine:
+  states:
+    NEW:
+      allowed_transitions: ["READY", "CANCELLED"]
+      required_fields: ["task_id", "owner", "priority"]
+      validation_rules:
+        - "has_owner_assigned"
+        - "has_priority_set"
+        - "has_description"
+
+    READY:
+      allowed_transitions: ["IN_PROGRESS"]
+      required_fields: ["dependencies_resolved", "resources_allocated"]
+      validation_rules:
+        - "all_dependencies_met"
+        - "resources_available"
+        - "preconditions_met"
+
+    IN_PROGRESS:
+      allowed_transitions: ["BLOCKED", "DONE", "DEGRADED"]
+      required_fields: ["start_time", "heartbeat_active"]
+      validation_rules:
+        - "heartbeat_is_active"
+        - "owner_is_active"
+        - "deadline_not_expired"
+
+    BLOCKED:
+      allowed_transitions: ["IN_PROGRESS", "ESCALATED"]
+      required_fields: ["blocker_type", "resolution_eta", "blocker_details"]
+      validation_rules:
+        - "blocker_type_specified"
+        - "resolution_eta_within_limit"
+        - "blocker_documented"
+
+    ESCALATED:
+      allowed_transitions: ["UNBLOCKED", "REASSIGNED"]
+      required_fields: ["escalation_reason", "escalation_level", "new_owner"]
+      validation_rules:
+        - "escalation_reason_valid"
+        - "escalation_level_set"
+        - "new_owner_assigned"
+
+    DEGRADED:
+      allowed_transitions: ["IN_PROGRESS", "ESCALATED"]
+      required_fields: ["degradation_reason", "fallback_plan"]
+      validation_rules:
+        - "degradation_reason_documented"
+        - "fallback_plan_exists"
+
+    DONE:
+      allowed_transitions: ["VERIFIED", "REJECTED"]
+      required_fields: ["output_artifacts", "completion_time", "verification_status"]
+      validation_rules:
+        - "output_artifacts_present"
+        - "verification_passed"
+
+    VERIFIED:
+      allowed_transitions: ["CLOSED"]
+      required_fields: ["verification_report", "approval_status"]
+      validation_rules:
+        - "verification_report_complete"
+        - "approval_obtained"
+
+    CLOSED:
+      allowed_transitions: []
+      required_fields: ["close_time", "final_status"]
+      validation_rules:
+        - "final_status_recorded"
+
+  # Transition guards
+  transition_guards:
+    NEW_to_READY:
+      conditions:
+        - "dependencies_resolved: true"
+        - "resources_available: true"
+        - "owner_active: true"
+
+    READY_to_IN_PROGRESS:
+      conditions:
+        - "preconditions_met: true"
+        - "no_conflicting_locks: true"
+        - "schedule_available: true"
+
+    IN_PROGRESS_to_BLOCKED:
+      conditions:
+        - "blocker_detected: true"
+        - "blocker_type_classified: true"
+        - "owner_confirmed_block: true"
+
+    IN_PROGRESS_to_DONE:
+      conditions:
+        - "all_outputs_generated: true"
+        - "quality_checks_passed: true"
+        - "evidence_collected: true"
+
+    BLOCKED_to_IN_PROGRESS:
+      conditions:
+        - "blocker_resolved: true"
+        - "dependencies_met: true"
+        - "resources_released: false"
+
+    ESCALATED_to_UNBLOCKED:
+      conditions:
+        - "escalation_resolved: true"
+        - "original_owner_available: true"
+
+    DONE_to_VERIFIED:
+      conditions:
+        - "verify_script_exists: true"
+        - "verification_artifacts_present: true"
+
+  # State timeout policies
+  state_timeouts:
+    NEW: 3600  # 1 hour
+    READY: 1800  # 30 minutes
+    IN_PROGRESS: 7200  # 2 hours
+    BLOCKED: 14400  # 4 hours
+    ESCALATED: 21600  # 6 hours
+    DEGRADED: 3600  # 1 hour
+    DONE: 1800  # 30 minutes
+    VERIFIED: 900  # 15 minutes
+
+# Validation functions
+validation_functions:
+  has_owner_assigned:
+    description: "Check if task has an owner assigned"
+    rule: "task.owner != null && task.owner != ''"
+
+  heartbeat_is_active:
+    description: "Check if agent heartbeat is active"
+    rule: "task.last_heartbeat > now - 300s"  # 5 minutes
+
+  all_outputs_generated:
+    description: "Check if all required outputs are generated"
+    rule: "task.outputs.length >= task.required_outputs.length"
+
+  quality_checks_passed:
+    description: "Check if quality gates passed"
+    rule: "task.quality_score >= 0.95"
+
+# Degradation modes
+degradation_modes:
+  partial_failure:
+    trigger_conditions:
+      - "agent_unavailable: 1"
+      - "heartbeat_missed: 3"
+      - "external_service_down: true"
+      - "resource_constraint_detected: true"
+    actions:
+      - "reduce_scope: true"
+      - "reassign_remaining_tasks: true"
+      - "switch_to_basic_mode: true"
+      - "notify_lead: true"
+      - "preserve_progress: true"
+    recovery:
+      conditions:
+        - "agent_back_online: true"
+        - "resources_available: true"
+      actions:
+        - "resume_normal_operations: true"
+        - "reintegrate_preserved_work: true"
+
+  full_failure:
+    trigger_conditions:
+      - "agent_unavailable: 2"
+      - "heartbeat_missed: 5"
+      - "circuit_breaker_open: true"
+      - "critical_resource_unavailable: true"
+    actions:
+      - "pause_workflow: true"
+      - "escalate_to_human: true"
+      - "preserve_state: true"
+      - "log_critical_incident: true"
+      - "send_emergency_notification: true"
+    recovery:
+      conditions:
+        - "manual_intervention_completed: true"
+        - "critical_resources_restored: true"
+      actions:
+        - "resume_from_checkpoint: true"
+        - "validate_state_consistency: true"
+
+# Emergency procedures
+emergency_procedures:
+  stuck_in_state:
+    detection:
+      timeout_multiplier: 2
+      notification_enabled: true
+      escalation_enabled: true
+
+    actions:
+      - "log_incident"
+      - "notify_owner"
+      - "escalate_to_lead"
+      - "preserve_state_for_debugging"
+
+  degradation_detection:
+    detection:
+      failure_rate_threshold: "10% in 5 minutes"
+      consecutive_failures: 5
+      resource_utilization_high: ">= 90%"
+      response_time_degradation: ">= 2x normal"
+
+    actions:
+      - "trigger_degradation_mode"
+      - "reduce_concurrency"
+      - "enable_aggressive_caching"
+      - "notify_operations_team"
+
+# Health monitoring
+health_monitoring:
+  metrics_tracked:
+    - "request_success_rate"
+    - "response_time_percentiles"
+    - "resource_utilization"
+    - "error_rate"
+    - "degradation_events"
+    - "recovery_time"
+
+  thresholds:
+    success_rate_warn: "95%"
+    success_rate_error: "90%"
+    response_time_warn: "2x baseline"
+    response_time_error: "5x baseline"
+    error_rate_warn: "5%"
+    error_rate_error: "10%"
+
+  reporting:
+    interval_seconds: 60
+    destinations: ["metrics_dashboard", "alerts_system"]

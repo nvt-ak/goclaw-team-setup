@@ -1,0 +1,92 @@
+# Conflict Policy - GoClaw Team Setup
+# Phase C Medium Improvement #10: Enhanced conflict resolution strategy
+
+conflict_resolution:
+  # Strategy cho shared resource conflicts
+  shared_resource:
+    strategy: "last_write_wins_with_notification"
+    notification_recipients: ["lead", "affected_agents"]
+    conflict_window_seconds: 30
+    log_all_conflicts: true
+
+  # Decision arbitration theo RACI
+  decision_arbitration:
+    strategy: "raci_determination"
+    escalation_path:
+      - "responsible"
+      - "accountable"
+      - "consulted"
+      - "informed"
+      - "lead"
+
+  # File write conflicts
+  file_writes:
+    strategy: "lock_based"
+    lock_timeout_seconds: 600
+    conflict_detection: "optimistic"
+    retry_on_conflict: true
+    max_retries: 3
+
+  # Resolution priority matrix
+  priority_matrix:
+    incident_response:
+      priority: 1
+      strategy: "immediate_resolution"
+      escalation: "incident_commander"
+
+    critical_path:
+      priority: 2
+      strategy: "lead_arbitration"
+      escalation: "lead"
+
+    normal_operation:
+      priority: 3
+      strategy: "first_come_first_serve"
+      escalation: "lead"
+
+    background_task:
+      priority: 4
+      strategy: "deferred_resolution"
+      escalation: "scheduler"
+
+  # Deadlock detection and resolution
+  deadlock_resolution:
+    detection_enabled: true
+    detection_timeout_seconds: 120
+    resolution_strategy: "oldest_request_released"
+    escalation_path: "lead"
+
+# Conflict types and handling
+conflict_types:
+  concurrent_writes:
+    detection: "version_mismatch"
+    resolution: "merge_or_reject"
+    notify_parties: true
+
+  resource_contention:
+    detection: "lock_timeout"
+    resolution: "priority_queue"
+    notify_parties: true
+
+  policy_violation:
+    detection: "validation_failure"
+    resolution: "reject_and_escalate"
+    notify_parties: true
+    escalate_to: "lead"
+
+# Prevention mechanisms
+prevention:
+  lock_mechanism:
+    enabled: true
+    type: "optimistic_with_versioning"
+    timeout_seconds: 300
+
+  version_control:
+    enabled: true
+    auto_commit: false
+    require_message: true
+
+  notification_system:
+    enabled: true
+    channels: ["log", "chat", "email"]
+    throttle_seconds: 60

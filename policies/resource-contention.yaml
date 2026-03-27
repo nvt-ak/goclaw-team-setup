@@ -1,0 +1,76 @@
+# Resource Contention Policy - GoClaw Team Setup
+# Phase A Critical Fix #2: Lock timeout + auto-release để tránh deadlock
+
+locks:
+  shared_write:
+    # Timeout cấu hình cho shared write locks
+    timeout_seconds: 600  # 10 minutes
+    auto_release: true
+    grace_period_seconds: 30
+
+    # Stale detection - phát hiện lock bị bỏ quên
+    stale_detection:
+      heartbeat_required: true
+      timeout_threshold: 2  # Miss 2 heartbeats = stale
+
+    # Recovery policy
+    recovery:
+      on_timeout: "auto_release_and_notify"
+      notification_targets: ["lead", "lock_holder"]
+      log_incident: true
+
+    # Acquisition policy
+    acquisition:
+      max_wait_seconds: 60
+      retry_attempts: 3
+      retry_backoff_seconds: 5
+
+  exclusive:
+    # Exclusive locks cho critical operations
+    timeout_seconds: 300  # 5 minutes
+    auto_release: true
+    grace_period_seconds: 10
+
+    stale_detection:
+      heartbeat_required: true
+      timeout_threshold: 1
+
+    recovery:
+      on_timeout: "auto_release_and_escalate"
+      notification_targets: ["lead"]
+      log_incident: true
+
+# Resource allocation limits
+resource_limits:
+  max_concurrent_locks_per_agent: 3
+  max_total_locks: 10
+  priority_queue_enabled: true
+
+# Contention resolution
+contention_resolution:
+  strategy: "priority_and_first_come"
+  priority_order:
+    - "incident_response"
+    - "critical_path"
+    - "normal_operation"
+    - "background_task"
+
+  tie_breaker: "first_request_wins"
+
+  escalation_on_deadlock:
+    enabled: true
+    timeout_seconds: 120
+    escalate_to: "lead"
+
+# Heartbeat integration
+heartbeat_integration:
+  required_for_locks: true
+  interval_seconds: 60
+  miss_threshold_for_release: 2
+
+# Audit trail
+audit:
+  log_all_acquisitions: true
+  log_all_releases: true
+  log_contentions: true
+  retention_days: 30

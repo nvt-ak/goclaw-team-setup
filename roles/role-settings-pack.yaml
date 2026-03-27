@@ -1,0 +1,5 @@
+# Role Settings Pack
+# Minimal scaffold for verifier
+
+team_type: generic
+roles: []

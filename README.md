@@ -9,5 +9,5 @@ Candidate bundle để anh test nhanh.
 - scripts/
 
 ## Notes
-- Runtime package mặc định vẫn exclude `templates/` và `references/` theo invariant đã chốt.
+- Runtime package mặc định vẫn exclude `references/` theo invariant đã chốt.
 - Bundle này dùng để review logic skill và tái đóng gói thử nghiệm.
