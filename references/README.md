@@ -2,7 +2,7 @@
 
 # Context Files
 
-> 7 file markdown định nghĩa personality, kiến thức và hành vi của agent.
+> 6 file markdown định nghĩa personality, kiến thức và hành vi của agent.
 
 ## Tổng quan
 
@@ -15,7 +15,6 @@ Mỗi agent load các context file xác định cách nó suy nghĩ và hành đ
 | **AGENTS.md** | Hướng dẫn vận hành & phong cách trò chuyện | Dùng chung | Theo user | Cấp agent | Không |
 | **SOUL.md** | Personality, giọng điệu, ranh giới, chuyên môn | Theo user | Theo user | Cấp agent | Không |
 | **IDENTITY.md** | Tên, loại sinh vật, emoji, vibe | Theo user | Theo user | Cấp agent | Không |
-| **TOOLS.md** | Ghi chú tool cục bộ (tên camera, SSH host) | Theo user | Theo user (load từ workspace; không seeded từ template mặc định) | Cấp agent | Không |
 | **USER.md** | Về người dùng | Theo user | Theo user | Theo user | Không |
 | **USER_PREDEFINED.md** | Quy tắc xử lý user cơ bản | Cấp agent | Không có | Cấp agent | Không |
 | **BOOTSTRAP.md** | Nghi lễ lần đầu (xoá khi hoàn thành) | Theo user | Theo user | Theo user | Có |
@@ -126,40 +125,6 @@ _(Kiến thức chuyên môn đặt ở đây: coding standards, image generatio
 
 **Open agent:** Theo user (tạo ra khi chat lần đầu)
 **Predefined agent:** Cấp agent (tuỳ chọn tạo qua LLM summoning)
-
-### TOOLS.md
-
-**Mục đích:** Ghi chú tool cục bộ. Tên camera, SSH host, sở thích giọng TTS, biệt danh thiết bị.
-
-**Ai viết:** Bạn, dựa trên môi trường của mình.
-
-**Nội dung ví dụ thực tế:**
-```markdown
-# TOOLS.md - Local Notes
-
-## Cameras
-
-- living-room → Main area, 180° wide angle, on 192.168.1.50
-- front-door → Entrance, motion-triggered
-
-## SSH
-
-- home-server → 192.168.1.100, user: admin, key: ~/.ssh/home.pem
-- vps → 45.67.89.100, user: ubuntu
-
-## TTS
-
-- Preferred voice: "Nova" (warm, slightly British)
-- Default speaker: "Kitchen HomePod"
-
-## Device Nicknames
-
-- laptop → My development MacBook Pro
-- phone → Personal iPhone 14 Pro
-```
-
-**Open agent:** Load từ thư mục workspace per-user lúc runtime. Không được seeded từ template — tạo file thủ công và nó sẽ được load tự động trong lần chạy tiếp theo.
-**Predefined agent:** Cấp agent (ghi chú dùng chung về tool chung)
 
 ### USER.md
 
@@ -281,12 +246,11 @@ Các file được load theo thứ tự này và ghép nối vào system prompt:
 1. **AGENTS.md** — cách vận hành
 2. **SOUL.md** — bạn là ai
 3. **IDENTITY.md** — tên, emoji
-4. **TOOLS.md** — ghi chú cục bộ
-5. **USER.md** — về user
-6. **BOOTSTRAP.md** — nghi lễ lần đầu (tuỳ chọn, xoá khi hoàn thành)
-7. **MEMORY.md** — bộ nhớ dài hạn (tuỳ chọn)
+4. **USER.md** — về user
+5. **BOOTSTRAP.md** — nghi lễ lần đầu (tuỳ chọn, xoá khi hoàn thành)
+6. **MEMORY.md** — bộ nhớ dài hạn (tuỳ chọn)
 
-Subagent và cron session chỉ load: AGENTS.md, TOOLS.md (context tối thiểu).
+Subagent và cron session chỉ load: AGENTS.md (context tối thiểu).
 
 > **Inject persona:** SOUL.md và IDENTITY.md được inject **hai lần** trong system prompt — một lần ở đầu (primacy zone) để thiết lập danh tính, và một lần ở cuối (recency zone) như một lời nhắc ngắn để tránh persona drift trong các cuộc trò chuyện dài.
 
@@ -303,7 +267,6 @@ User mới bắt đầu chat với `researcher` (open agent):
    IDENTITY.md → trống (chờ user điền)
    USER.md → trống
    BOOTSTRAP.md → nghi lễ "Who am I?"
-   TOOLS.md → không seeded từ template (tạo thủ công trong workspace nếu cần; tự động được load nếu có)
    ```
 
 2. Agent khởi đầu cuộc trò chuyện bootstrap:

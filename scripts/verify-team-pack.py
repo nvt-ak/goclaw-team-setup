@@ -39,7 +39,6 @@ PER_ROLE_REQUIRED_FILES = [
     "AGENTS.md",
     "SOUL.md",
     "IDENTITY.md",
-    "TOOLS.md",
     "USER.md",
     "USER_PREDEFINED.md",
     "HEARTBEAT.md",
@@ -49,6 +48,37 @@ EVIDENCE_FILES = [
     "VERIFY_TEAM_PACK_REPORT.md",
     "DIFF_REPORT.md",
 ]
+
+# Required headers per context file type
+TEMPLATE_STRUCTURE_REQUIREMENTS = {
+    "AGENTS.md": [
+        "Conversational Style",
+        "Response Quality",
+    ],
+    "SOUL.md": [
+        "Core Truths",
+        "Boundaries",
+        "Vibe",
+    ],
+    "IDENTITY.md": [
+        "Name:",
+        "Creature:",
+        "Purpose:",
+        "Vibe:",
+    ],
+    "USER.md": [
+        "Name:",
+        "Gọi như thế nào:",
+    ],
+    "USER_PREDEFINED.md": [
+        "Đối tượng phục vụ:",
+        "Ngôn ngữ mặc định:",
+    ],
+    "HEARTBEAT.md": [
+        "interval",
+        "timeout",
+    ],
+}
 
 
 def ensure_checkpoint_dir():
@@ -123,11 +153,56 @@ def run_partial_verification() -> dict:
     return result
 
 
+def validate_template_structure(role_dir: Path) -> list:
+    errors = []
+    for file_name, required_headers in TEMPLATE_STRUCTURE_REQUIREMENTS.items():
+        file_path = role_dir / file_name
+        if not file_path.exists():
+            continue
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            for header in required_headers:
+                if header not in content:
+                    errors.append(f"{role_dir.name}/{file_name}: missing '{header}'")
+        except Exception as e:
+            errors.append(f"{role_dir.name}/{file_name}: read error - {e}")
+    return errors
+
+
+def run_structure_validation() -> dict:
+    result = {
+        "status": "in_progress",
+        "checks_passed": 0,
+        "checks_failed": 0,
+        "errors": [],
+        "timestamp": datetime.now().isoformat(),
+    }
+    roles_dir = ROOT_DIR / "roles"
+    if not roles_dir.exists():
+        result["errors"].append("Roles directory not found")
+        result["status"] = "fail"
+        return result
+    role_dirs = [d for d in roles_dir.iterdir() if d.is_dir()]
+    for role_dir in role_dirs:
+        struct_errors = validate_template_structure(role_dir)
+        if struct_errors:
+            result["checks_failed"] += len(struct_errors)
+            result["errors"].extend(struct_errors)
+        else:
+            result["checks_passed"] += 1
+    result["status"] = "pass" if result["checks_failed"] == 0 else "fail"
+    return result
+
+
 def run_full_verification() -> dict:
-    """Run full verification - all checks"""
     result = run_partial_verification()
 
-    # Additional full checks
+    # Check 2: Template structure validation
+    struct_result = run_structure_validation()
+    result["checks_passed"] += struct_result["checks_passed"]
+    result["checks_failed"] += struct_result["checks_failed"]
+    result["errors"].extend(struct_result["errors"])
+
     # Check 3: Evidence files
     for evidence_file in EVIDENCE_FILES:
         full_path = ROOT_DIR / evidence_file

@@ -88,13 +88,6 @@ Example fail:
 - policies/resource-contention.yaml
 - runbooks/incident-runbook.md
 - runbooks/rollback-runbook.md
-- test-mode/questions-core.yaml
-- test-mode/questions-role.yaml
-- test-mode/questions-conflict.yaml
-- test-mode/scenarios.yaml
-- test-mode/scorecard.yaml
-- test-mode/verify-report.md
-- test-mode/improvement-backlog.md
 - VERIFY_TEAM_PACK_REPORT.md
 - DIFF_REPORT.md
 
@@ -102,7 +95,6 @@ Per-role required context files:
 - AGENTS.md
 - SOUL.md
 - IDENTITY.md
-- TOOLS.md
 - USER.md
 - USER_PREDEFINED.md
 - HEARTBEAT.md
@@ -140,11 +132,10 @@ Return in this order:
 3. Kiến trúc team + governance
 4. Role settings pack status
 5. Workflow + policy status
-6. Test-mode status
-7. Verify report (score + lỗi)
-8. Improvement backlog
-9. Go-live checklist
-10. Final status (`DONE` or blocking state)
+6. Verify report (score + lỗi)
+7. Improvement backlog
+8. Go-live checklist
+9. Final status (`DONE` or blocking state)
 
 If missing mandatory artifact(s): return `INCOMPLETE_SETUP`.
 
