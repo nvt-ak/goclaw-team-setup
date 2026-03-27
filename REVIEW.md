@@ -1,4 +1,4 @@
-# REVIEW.md — GoClaw Team Setup Unified OS (v8 candidate)
+# REVIEW.md — GoClaw Team Setup
 
 ## 1) Lỗi cốt lõi gây build mãi không xong
 
