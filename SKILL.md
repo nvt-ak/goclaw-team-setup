@@ -99,8 +99,35 @@ Per-role required context files:
 - USER_PREDEFINED.md
 - HEARTBEAT.md
 
+## Template Reference (MANDATORY)
+
+**ALWAYS use reference templates as EXACT format baseline. DO NOT deviate unless explicitly required.**
+
+| Context File | Reference Template |
+|-------------|-------------------|
+| AGENTS.md | `references/goclaw-template-agents.md` |
+| SOUL.md | `references/goclaw-template-soul.md` |
+| IDENTITY.md | `references/goclaw-template-identity.md` |
+| USER.md | `references/goclaw-template-user.md` |
+| USER_PREDEFINED.md | `references/goclaw-template-user-predefined.md` |
+| BOOTSTRAP.md | `references/goclaw-template-bootstrap.md` |
+
+### Template Compliance Rules
+1. **READ reference template BEFORE generating** each context file
+2. **FOLLOW exact structure** - copy section headings, format, and key content patterns
+3. **FILL IN role-specific content** - customize examples to match role's domain
+4. **NEVER skip sections** - even if appears optional in template
+5. **Preserve markdown formatting** - headers, bullet points, code blocks
+
+### Format Validation Check (MANDATORY after generation)
+After generating each context file:
+1. Extract required sections from reference template
+2. Compare with generated content
+3. If missing sections or < 70% template match → REGENERATE with template
+
 ## Critical Fail Conditions
 - Missing required files
+- Context file format mismatch (does not follow reference template structure)
 - Workflow orphan/cycle
 - Missing approval gate for high-risk stage
 - Missing escalation owner for SLA breach
@@ -118,10 +145,15 @@ Per-role required context files:
 1. Collect all paths once
 2. Validate locklist completeness
 3. Validate role-map consistency (roles/raci/acl/workflow)
-4. Validate per-role schema + semantic alignment
-5. Validate packaging cleanliness (runtime excludes references)
-6. Emit verification table: `path | expected | actual | status`
-7. Write:
+4. **Validate per-role context file format compliance** (MANDATORY):
+   - For each role's AGENTS.md: verify matches `references/goclaw-template-agents.md` structure
+   - For each role's SOUL.md: verify matches `references/goclaw-template-soul.md` structure
+   - For each role's IDENTITY.md: verify matches `references/goclaw-template-identity.md` structure
+   - Report: `file | template | match_score | status`
+5. Validate per-role schema + semantic alignment
+6. Validate packaging cleanliness (runtime excludes references)
+7. Emit verification table: `path | expected | actual | status`
+8. Write:
    - `VERIFY_TEAM_PACK_REPORT.md`
    - `DIFF_REPORT.md`
 
