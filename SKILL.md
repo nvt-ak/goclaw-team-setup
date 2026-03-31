@@ -1,7 +1,7 @@
 ---
 name: GoClaw Team Setup
 description: Deterministic operational contract for team setup, role research, role rendering, team model synthesis, and evidence-gated completion.
-version: v9
+version: v10
 language: en
 ---
 
@@ -13,7 +13,7 @@ Purpose: execute a strict, deterministic team-setup workflow that is research-fi
 Applies when user requests setup/regeneration of a GoClaw team pack with roles, governance, workflows, policies, runbooks, metrics, and verification artifacts.
 
 Core invariants:
-- `team_roles == raci_roles == acl_roles == workflow_roles`
+- `team_roles == raci_roles == acl_roles == workflow_roles` (set equality on normalized slugs; see §4 schema)
 - Runtime package excludes `references/` by default
 - Per-role required files include `HEARTBEAT.md`
 - No role content may drift outside declared `team_type`
@@ -38,7 +38,8 @@ Deterministic failure precedence (evaluate top to bottom, stop on first match):
 | 3 | Any required template heading/order mismatch | `FAILED_TEMPLATE_CONFORMANCE` |
 | 4 | Any role-depth score below threshold or generic critical-section content detected | `FAILED_ROLE_DEPTH` |
 | 5 | Cross-layer ownership/actor/responder inconsistency | `FAILED_TEAM_MODEL_CONSISTENCY` |
-| 6 | Verification evidence missing/stale/incoherent for current generation window | `BLOCKED_NO_EVIDENCE` |
+| 6 | Malformed or empty artifact layout (including literal brace directories) | `FAILED_ARTIFACT_LAYOUT` |
+| 7 | Verification evidence missing/stale/incoherent for current generation window | `BLOCKED_NO_EVIDENCE` |
 
 Deterministic failure states:
 - `BLOCKED_INPUT_MISSING`
@@ -46,6 +47,7 @@ Deterministic failure states:
 - `FAILED_TEMPLATE_CONFORMANCE`
 - `FAILED_ROLE_DEPTH`
 - `FAILED_TEAM_MODEL_CONSISTENCY`
+- `FAILED_ARTIFACT_LAYOUT`
 - `BLOCKED_NO_EVIDENCE`
 
 ## 3. Mandatory Step Contracts (4 Steps)
@@ -63,9 +65,9 @@ Canonical state gate contracts:
 | `ROLE_PLANNING` | `TEAM_RESEARCH` passed | `research/role-matrix.yaml` valid with required per-role fields |
 | `ROLE_RESEARCH` | `ROLE_PLANNING` passed | `research/role-<slug>.md` exists for every planned role |
 | `ROLE_RENDER` | `ROLE_RESEARCH` passed | All required role files generated per role with template conformance |
-| `TEAM_MODELING` | `ROLE_RENDER` passed | `team-model/operating-model.md` complete and cross-layer mappings coherent |
+| `TEAM_MODELING` | `ROLE_RENDER` passed | `team-model/operating-model.md` + `team-model/raci-matrix.yaml` complete; cross-layer mappings coherent |
 | `VERIFY` | `TEAM_MODELING` passed | Required verification artifacts generated with passing thresholds |
-| `PACKAGE` | `VERIFY` passed | Runtime package assembled, excludes `references/` by default, includes mandatory top-level artifacts |
+| `PACKAGE` | `VERIFY` passed | `verify/package_manifest.yaml` exists, valid, and matches canonical layout + bundle rules |
 | `DONE` | `PACKAGE` passed | Final output contract satisfied and deterministic status set to `DONE` |
 
 Step 1 - Team structure and best-practice research:
@@ -86,57 +88,100 @@ Step 3 - Per-role generation from references:
 - Gate: any template mismatch -> `FAILED_TEMPLATE_CONFORMANCE`; any shallow role content -> `FAILED_ROLE_DEPTH`.
 
 Step 4 - Team model synthesis:
-- Output: `team-model/operating-model.md`.
+- Output: `team-model/operating-model.md` plus `team-model/raci-matrix.yaml`.
 - Must synthesize workflows, config, metrics, policies, roles, runbooks into one operating model.
 - Must define governance (RACI, approvals, escalation, SLA), contention control, stale-lock handling, and rollback paths.
+- `team-model/raci-matrix.yaml` MUST list the same role slug set as `research/role-matrix.yaml` (`role_slugs` array).
 - Gate: cross-layer inconsistency -> `FAILED_TEAM_MODEL_CONSISTENCY`.
 
 ## 4. Artifact Schema and Folder Contract
-Required directories:
-- `research/`
-- `roles/`
-- `workflows/`
-- `policies/`
-- `metrics/`
-- `runbooks/`
-- `verify/`
-- `team-model/`
+Scope: all paths below are relative to the **generated team-pack root** (the output directory of a setup run). Rules about “top-level directories” apply only to that root, not to the skill repository or the host workspace unless the team-pack root is the repo root.
+
+Canonical team-pack root layout (required top-level directories — create these exact names only; no brace expansion; no alternate spellings):
+
+1. `config/`
+2. `metrics/`
+3. `policies/`
+4. `research/`
+5. `roles/`
+6. `runbooks/`
+7. `team-model/`
+8. `verify/`
+9. `workflows/`
+
+Required root files (same directory as the folders above):
+
+- `VERIFY_TEAM_PACK_REPORT.md`
+- `DIFF_REPORT.md`
+
+Optional root files: `README.md` for human operators only; they do not satisfy any gate.
+
+No other top-level directories are part of the contract (excluding tooling such as `.git`). Additional nested paths under the nine folders are allowed when required by filenames below.
 
 Required artifacts:
+- `config/team.yaml`
 - `research/team-architecture.md`
 - `research/role-matrix.yaml`
 - `research/role-<role-name>.md` (one per role)
 - `research/template-fill-map.yaml`
+- `team-model/operating-model.md`
+- `team-model/raci-matrix.yaml`
 - `verify/template_conformance_role_depth.md`
+- `verify/package_manifest.yaml`
 - `VERIFY_TEAM_PACK_REPORT.md`
 - `DIFF_REPORT.md`
 
 Artifact rules:
 - Missing required directory/file -> immediate deterministic failure.
 - Evidence artifacts must reflect the latest generation window.
+- Directory scaffolding must create real directories only; literal brace-name directories are invalid outputs.
+- Forbidden malformed directory names include any top-level directory matching patterns like `\{.*\}` or containing comma-delimited brace tokens (example: `{config,research,...}`).
+- Shell portability rule: do not rely on quoted brace expansion for scaffolding; use explicit path lists or unquoted brace expansion only when shell semantics are guaranteed.
 
 Schema and source definitions:
-- `acl_roles` source artifact is `research/role-matrix.yaml`.
+- `team_roles` / `acl_roles`: derived from `research/role-matrix.yaml`. Same set: normalized slugs from `roles[].role_name`.
+- `raci_roles`: derived from `team-model/raci-matrix.yaml`. Field `role_slugs` (array of strings) MUST list every accountable role with normalized slug spelling; set MUST equal `team_roles` after sorting for equality.
+- `workflow_roles`: derived only from YAML files matching `workflows/*.yaml` (non-recursive). Union of normalized slugs from:
+  - every entry of top-level `actors:` when present (list),
+  - every scalar `owner`, `approval_owner`, `escalation_owner` under `stages:` entries when present.
+  Set MUST equal `team_roles` after normalization (same members as `team_roles`).
 - `research/role-matrix.yaml` minimum schema:
   - `generation_id` (string)
   - `generated_at` (RFC3339 UTC timestamp)
   - `commit_sha` (40-char git SHA, lowercase hex)
   - `roles` (array of objects with required fields from Section 3 Step 2)
-- `acl_roles` is the set of normalized role slugs from `research/role-matrix.yaml.roles[].role_name`.
+- `team-model/raci-matrix.yaml` minimum schema:
+  - `generation_id`, `generated_at`, `commit_sha` (same tuple as generation window)
+  - `role_slugs` (array of strings, normalized slugs; sorted uniqueness check passes vs `team_roles`)
+- `verify/package_manifest.yaml` minimum schema:
+  - `generation_id`, `generated_at`, `commit_sha` (same tuple as generation window)
+  - `excludes_references` (boolean, MUST be `true` for shipped runtime bundles)
+  - `layout_directories` (array of exactly nine strings): MUST equal the canonical directory names in §4 order
+  - `layout_root_files_mandatory` (array of exactly two strings): `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md` (order as listed)
+  - Optional `layout_root_files_optional`: MAY list `README.md` only when present; MUST NOT list `references/`
+- `config/team.yaml` minimum schema:
+  - `team_type` (string, MUST match declared intake `team_type`)
+  - `role_slugs` (array of strings): set of normalized slugs MUST equal `team_roles`
 
 Generation window and freshness rule:
 - Current generation identity tuple is `(generation_id, generated_at, commit_sha)`.
-- `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md`, and `verify/template_conformance_role_depth.md` must all declare the same tuple.
-- Freshness passes only when tuple values match exactly across all required evidence artifacts and `commit_sha` equals current HEAD commit.
+- These artifacts MUST all declare the same tuple: `research/role-matrix.yaml`, `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md`, `verify/template_conformance_role_depth.md`, `team-model/raci-matrix.yaml`, `verify/package_manifest.yaml`.
+- Freshness passes only when tuple values match exactly across all tuple-bearing artifacts above and `commit_sha` equals current HEAD commit of the environment that produced the pack.
 - Any mismatch or missing tuple field -> `BLOCKED_NO_EVIDENCE`.
 
 Minimum artifact presence requirements:
+- `config/`: REQUIRED file is exactly `config/team.yaml` (no substitute path).
 - `workflows/`: at least `workflows/README.md` plus one executable/declared workflow spec file.
 - `policies/`: at least `policies/retry-policy.yaml` and `policies/resource-contention.yaml`.
 - `metrics/`: at least one metric catalog/spec file with owner mapping.
 - `runbooks/`: at least one incident/operation runbook file with responder mapping.
+- Root artifact set must contain at least one file under each required directory (`config/`, `research/`, `roles/`, `workflows/`, `policies/`, `metrics/`, `runbooks/`, `verify/`, `team-model/`), otherwise fail as incomplete generation.
+
+Runtime packaging note: shipped bundles exclude `references/` by default; the canonical layout above still applies to the on-disk team pack before packaging.
 
 ## 5. Template Rendering and Anti-Generic Enforcement
+Template-first rule (non-negotiable): no prose may be written into a role file until steps 1–3 below are complete for that file. Free-form outlines that replace template headings are invalid.
+
 Template rendering sequence per role file:
 1. Read reference template.
 2. Extract required headings/section order.
@@ -144,6 +189,11 @@ Template rendering sequence per role file:
 4. Fill all required sections with role-specific operational content.
 5. Validate structure and role depth.
 6. Write mapping entries into `research/template-fill-map.yaml`.
+
+Template map contract:
+- `research/template-fill-map.yaml` MUST key each output file to its reference path (e.g. `references/goclaw-template-agents.md`).
+- Each mapped entry MUST list `template_section` titles copied exactly from the reference (same spelling and hierarchy), never ad-hoc section names invented for the role.
+- If the reference uses a combined H1 title line, treat `##` and `###` subtitles as the ordered list used for conformance (H1 may differ cosmetically; subtitles must appear in order).
 
 Template conformance rules:
 - Preserve section hierarchy and required headings.
@@ -185,7 +235,8 @@ Verification order:
 3. Template conformance checks.
 4. Role-depth checks.
 5. Team-model consistency checks.
-6. Evidence checks and packaging checks.
+6. Filesystem sanity checks (no malformed literal-brace directories; no empty artifact tree).
+7. Evidence checks and packaging checks.
 
 Scoring thresholds:
 - `structure_match_score >= 0.90`
@@ -193,7 +244,8 @@ Scoring thresholds:
 - `generic_content_flags == 0` for critical sections
 
 Scoring method (brief, deterministic):
-- `structure_match_score`: per-file ratio `matched_required_headings / total_required_headings`; global score is mean across required role files.
+- `structure_match_score`: per-file ratio `matched_required_headings / total_required_headings`; **required headings are extracted from the paired `references/goclaw-template-*.md` file** (ordered `##` / `###` list). Matching is exact string equality on normalized heading text after trim; global score is the mean across required role files. **Self-reported PASS lines in verification markdown are not evidence** — scores MUST be reproducible from a diff of extracted headings.
+- Files without a reference template in `references/` (currently `HEARTBEAT.md` only): exclude from the structure mean, but MUST be non-empty and contain at least one actionable checklist or signal list; otherwise `FAILED_TEMPLATE_CONFORMANCE`.
 - `role_depth_score`: weighted rubric in `[0,1]` using evidence density, operational specificity, and measurable obligations (weights fixed in verifier implementation); global score is mean across role files.
 - `generic_content_flags`: count of critical sections failing anti-generic checks; must be exactly `0`.
 - Critical sections for `generic_content_flags == 0`: mission, decision_rights, handoffs_in, handoffs_out, success_metrics, escalation path, SLA/alert ownership.
@@ -207,15 +259,18 @@ State-to-step artifact/gate mapping:
 | `ROLE_PLANNING` | Step 2 | `research/role-matrix.yaml` | Role matrix validity |
 | `ROLE_RESEARCH` | Step 3 precondition | `research/role-<slug>.md` (all roles) | Per-role research completeness |
 | `ROLE_RENDER` | Step 3 render | Role files + `research/template-fill-map.yaml` | Template and depth checks |
-| `TEAM_MODELING` | Step 4 | `team-model/operating-model.md` | Cross-layer consistency |
+| `TEAM_MODELING` | Step 4 | `team-model/operating-model.md`, `team-model/raci-matrix.yaml` | Cross-layer consistency + RACI set |
 | `VERIFY` | Verification pipeline | `verify/template_conformance_role_depth.md`, `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md` | Score + evidence freshness pass |
-| `PACKAGE` | Packaging | Runtime pack manifest/content | Packaging contract pass |
+| `PACKAGE` | Packaging | `verify/package_manifest.yaml` | Packaging manifest schema + layout contract pass |
 | `DONE` | Finalization | Final response sections in required order | Output parsing contract pass |
 
 Verification outputs (mandatory):
 - `verify/template_conformance_role_depth.md` with per-file scores and findings.
 - `VERIFY_TEAM_PACK_REPORT.md` with global pass/fail matrix.
 - `DIFF_REPORT.md` with generation-window delta evidence.
+
+Packaging output (mandatory after `PACKAGE`):
+- `verify/package_manifest.yaml` as specified in §4.
 
 ## 8. Failure States and Recovery
 `BLOCKED_INPUT_MISSING`
@@ -224,7 +279,7 @@ Verification outputs (mandatory):
 
 `BLOCKED_INCOMPLETE_RESEARCH`
 - Trigger: missing team/role research artifacts.
-- Recovery: complete missing research, then resume at `TEAM_RESEARCH` or `ROLE_RESEARCH`.
+- Recovery: complete missing research artifacts, then **always** resume from `TEAM_RESEARCH` (re-run the pipeline forward in order; do not jump to mid-states).
 
 `FAILED_TEMPLATE_CONFORMANCE`
 - Trigger: rendered files violate template structure.
@@ -241,6 +296,10 @@ Verification outputs (mandatory):
 `BLOCKED_NO_EVIDENCE`
 - Trigger: required verification evidence missing, stale, or inconsistent.
 - Recovery: regenerate verification artifacts for the latest cycle, then re-check gates.
+
+`FAILED_ARTIFACT_LAYOUT`
+- Trigger: malformed directory layout (including literal brace-directory creation) or required artifact tree is empty/incomplete.
+- Recovery: rebuild directory scaffold with valid paths, regenerate required artifacts, rerun verification pipeline from `TEAM_RESEARCH`.
 
 ## 9. Final Output Contract
 Return final response in this exact order with exact headings:
@@ -263,10 +322,14 @@ Parsing rules:
 - `Final status` value must be exactly `DONE` or one deterministic failure state token.
 
 Completion rule:
-- `DONE` is forbidden unless all verification gates pass and all three artifacts exist:
+- `DONE` is forbidden unless all verification gates pass and **all** mandatory artifacts in §4 exist, including in particular:
+  - `config/team.yaml`
+  - `verify/template_conformance_role_depth.md`
   - `VERIFY_TEAM_PACK_REPORT.md`
   - `DIFF_REPORT.md`
-  - `verify/template_conformance_role_depth.md`
+  - `team-model/raci-matrix.yaml`
+  - `verify/package_manifest.yaml`
+- Tuple coherence (§4) MUST pass across every tuple-bearing artifact before `DONE`.
 
 ## 10. Safety and Integrity Rules
 - Never fabricate artifacts, scores, mappings, or completion status.
