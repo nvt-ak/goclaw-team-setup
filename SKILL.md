@@ -1,187 +1,275 @@
 ---
 name: GoClaw Team Setup
-description: Public-ready unified skill for GoClaw multi-agent team setup. Use when users setup/regenerate multi-agent teams with per-role settings, governance (RACI/approval/SLA), conflict controls, and deterministic verification artifacts. Stateless-by-default, memory-optional, optimized for low tool-call execution.
-version: v8
+description: Deterministic operational contract for team setup, role research, role rendering, team model synthesis, and evidence-gated completion.
+version: v9
+language: en
 ---
 
 # GoClaw Team Setup
 
-## Scope
-This skill handles:
-- End-to-end multi-agent team setup (design -> research -> generation -> verify -> package)
-- Per-role context packs (AGENTS/SOUL/IDENTITY/TOOLS/USER/USER_PREDEFINED/HEARTBEAT)
-- Governance (RACI, approval, escalation, SLA)
-- Deterministic completion evidence and fail-fast validation
+## 1. Metadata and Purpose
+Purpose: execute a strict, deterministic team-setup workflow that is research-first, template-conformant, role-deep, and evidence-gated.
 
-This skill does NOT handle:
-- Non-GoClaw orchestration systems
-- Infra provisioning (K8s/Terraform/CI secrets)
-- Policy bypass / fake artifact completion
+Applies when user requests setup/regeneration of a GoClaw team pack with roles, governance, workflows, policies, runbooks, metrics, and verification artifacts.
 
-## Activation Triggers
-Use this skill when user asks to:
-- Setup/regenerate multi-agent team
-- Build or re-build per-role settings
-- Add governance/approval gates/conflict controls
-- Verify team pack quality with reports
-- Package a reusable setup bundle/zip
+Core invariants:
+- `team_roles == raci_roles == acl_roles == workflow_roles`
+- Runtime package excludes `references/` by default
+- Per-role required files include `HEARTBEAT.md`
+- No role content may drift outside declared `team_type`
+- No completion by intent text; completion by artifact evidence only
 
-## Mandatory Invariants (non-negotiable)
-1. `team_roles == raci_roles == acl_roles == workflow_roles`
-2. Runtime package must exclude `references/` by default
-3. No DONE state without BOTH:
-   - `VERIFY_TEAM_PACK_REPORT.md`
-   - `DIFF_REPORT.md`
-4. Per-role required files must include `HEARTBEAT.md`
-5. Semantic role content must match declared `team_type` (no cross-domain drift)
+## 2. Execution Model (State Machine)
+Canonical sequence:
+`INTAKE -> TEAM_RESEARCH -> ROLE_PLANNING -> ROLE_RESEARCH -> ROLE_RENDER -> TEAM_MODELING -> VERIFY -> PACKAGE -> DONE`
 
-## Deterministic Completion Contract
-A run is DONE only when all checks pass:
-- Structural checks pass
-- Semantic checks pass
-- Evidence pair exists and is fresh for the latest generation window
+State transition rules:
+- No state skipping.
+- Each state requires explicit entry prerequisites and exit gates.
+- Any failed gate maps to one deterministic blocked/failed state.
+- Failure resolution is `first-match-wins` using the precedence table below.
 
-If any condition fails, force one of:
-- `INCOMPLETE_SETUP`
-- `BLOCKED_NO_EVIDENCE`
-- `FAILED_SEMANTIC_DRIFT`
+Deterministic failure precedence (evaluate top to bottom, stop on first match):
+
+| Precedence | Condition (first true wins) | State |
+|---|---|---|
+| 1 | Required input missing/empty at intake | `BLOCKED_INPUT_MISSING` |
+| 2 | Any required research artifact missing/incomplete | `BLOCKED_INCOMPLETE_RESEARCH` |
+| 3 | Any required template heading/order mismatch | `FAILED_TEMPLATE_CONFORMANCE` |
+| 4 | Any role-depth score below threshold or generic critical-section content detected | `FAILED_ROLE_DEPTH` |
+| 5 | Cross-layer ownership/actor/responder inconsistency | `FAILED_TEAM_MODEL_CONSISTENCY` |
+| 6 | Verification evidence missing/stale/incoherent for current generation window | `BLOCKED_NO_EVIDENCE` |
+
+Deterministic failure states:
+- `BLOCKED_INPUT_MISSING`
 - `BLOCKED_INCOMPLETE_RESEARCH`
+- `FAILED_TEMPLATE_CONFORMANCE`
+- `FAILED_ROLE_DEPTH`
+- `FAILED_TEAM_MODEL_CONSISTENCY`
+- `BLOCKED_NO_EVIDENCE`
 
-## Runtime Watchdog Policy
-- Keep execution alive with checkpoint artifacts every <= 5 minutes
-- If a 5-minute boundary passes without new evidence checkpoint -> `BLOCKED_NO_EVIDENCE`
-- Never close by intent/status text only; close by artifact proof only
-- Enforce resource lock timeout: shared write locks auto-release after 10 minutes if no heartbeat
-- Validate state transitions: enforce allowed state machine transitions per workflow
-- Monitor for stale locks: detect and recover from abandoned resource locks
+## 3. Mandatory Step Contracts (4 Steps)
+Role slug naming contract:
+- All role-derived names (file names, IDs, workflow actor labels, metric owner keys) use deterministic lowercase kebab-case slug normalization.
+- Normalize by: trim -> lowercase -> replace spaces/underscores with `-` -> collapse repeated `-` -> remove non `[a-z0-9-]` -> trim `-`.
+- `research/role-<role-name>.md` uses `<role-name>` as normalized slug.
 
-## Role Research Phase (MANDATORY before render)
-**Every role must be researched before template filling.**
+Canonical state gate contracts:
 
-For each role in roster:
-1. **Gather domain context**: industry best-practices, typical responsibilities, KPIs, failure modes
-2. **Map to team_type semantics**: ensure role vocabulary aligns with declared team type (content/backend/frontend/ops/security)
-3. **Identify role-specific obligations**: what makes this role unique vs template defaults
-4. **Document anti-patterns**: what NOT to do for this role
-5. **Output artifact**: `research/role-<role-name>.md` (source + findings + mapping to template)
+| State | Entry prerequisites | Exit gate |
+|---|---|---|
+| `INTAKE` | `team_type`, objective, constraints provided | Inputs complete and non-empty; else `BLOCKED_INPUT_MISSING` |
+| `TEAM_RESEARCH` | `INTAKE` passed | `research/team-architecture.md` exists and includes required subsections |
+| `ROLE_PLANNING` | `TEAM_RESEARCH` passed | `research/role-matrix.yaml` valid with required per-role fields |
+| `ROLE_RESEARCH` | `ROLE_PLANNING` passed | `research/role-<slug>.md` exists for every planned role |
+| `ROLE_RENDER` | `ROLE_RESEARCH` passed | All required role files generated per role with template conformance |
+| `TEAM_MODELING` | `ROLE_RENDER` passed | `team-model/operating-model.md` complete and cross-layer mappings coherent |
+| `VERIFY` | `TEAM_MODELING` passed | Required verification artifacts generated with passing thresholds |
+| `PACKAGE` | `VERIFY` passed | Runtime package assembled, excludes `references/` by default, includes mandatory top-level artifacts |
+| `DONE` | `PACKAGE` passed | Final output contract satisfied and deterministic status set to `DONE` |
 
-**Fail condition**: If research artifact missing or too generic (< 200 words domain-specific content) → BLOCKED_INCOMPLETE_RESEARCH
+Step 1 - Team structure and best-practice research:
+- Inputs: `team_type`, business objective, constraints, quality bar.
+- Output: `research/team-architecture.md`.
+- Must include: topology, operating cadence, KPI model, common failure modes, mitigations, references.
+- Gate: if missing or generic -> `BLOCKED_INCOMPLETE_RESEARCH`.
 
-| Context File       | Reference Template                            |
-|--------------------|-----------------------------------------------|
-| AGENTS.md          | references/goclaw-template-agents.md          |
-| SOUL.md            | references/goclaw-template-soul.md            |
-| IDENTITY.md        | references/goclaw-template-identity.md        |
-| USER.md            | references/goclaw-template-user.md            |
-| USER_PREDEFINED.md | references/goclaw-template-user-predefined.md |
-| BOOTSTRAP.md       | references/goclaw-template-bootstrap.md       |
-### Template Compliance Rules
-1. **READ reference template BEFORE generating** each context file
-2. **FOLLOW exact structure** - copy section headings, format, and key content patterns
-3. **FILL IN role-specific content** - customize examples to match role's domain (from research artifacts)
-4. **NEVER skip sections** - even if appears optional in template
-5. **Preserve markdown formatting** - headers, bullet points, code blocks
+Step 2 - Required role planning:
+- Output: `research/role-matrix.yaml`.
+- Per-role fields: `role_name`, `mission`, `core_responsibilities`, `decision_rights`, `handoffs_in`, `handoffs_out`, `success_metrics`.
+- Gate: unresolved role ownership/accountability collisions -> `FAILED_TEAM_MODEL_CONSISTENCY`.
 
-### Template Fill Map (MANDATORY)
-Produce `research/template-fill-map.yaml` mapping:
-- template section -> role-specific source paragraph
-- source artifact path + line anchor
+Step 3 - Per-role generation from references:
+- Precondition: `research/role-<role-name>.md` exists for every role.
+- Outputs: per-role context pack files plus `research/template-fill-map.yaml`.
+- Required role files: `AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `USER_PREDEFINED.md`, `BOOTSTRAP.md`, `HEARTBEAT.md`.
+- Gate: any template mismatch -> `FAILED_TEMPLATE_CONFORMANCE`; any shallow role content -> `FAILED_ROLE_DEPTH`.
 
-If missing mapping for any required section -> `FAILED_TEMPLATE_FILL_MAP`
+Step 4 - Team model synthesis:
+- Output: `team-model/operating-model.md`.
+- Must synthesize workflows, config, metrics, policies, roles, runbooks into one operating model.
+- Must define governance (RACI, approvals, escalation, SLA), contention control, stale-lock handling, and rollback paths.
+- Gate: cross-layer inconsistency -> `FAILED_TEAM_MODEL_CONSISTENCY`.
 
-### Format Validation Check (MANDATORY after generation)
-After generating each context file:
-1. Extract required sections from reference template
-2. Compare with generated content
-3. If missing sections or < 70% template match → REGENERATE with template
+## 4. Artifact Schema and Folder Contract
+Required directories:
+- `research/`
+- `roles/`
+- `workflows/`
+- `policies/`
+- `metrics/`
+- `runbooks/`
+- `verify/`
+- `team-model/`
 
-## Role-Depth Conformance Gate (MANDATORY)
-After generation, validate both:
-1. Structure conformance (section match against template)
-2. Role-depth conformance (content is role-specific and actionable)
+Required artifacts:
+- `research/team-architecture.md`
+- `research/role-matrix.yaml`
+- `research/role-<role-name>.md` (one per role)
+- `research/template-fill-map.yaml`
+- `verify/template_conformance_role_depth.md`
+- `VERIFY_TEAM_PACK_REPORT.md`
+- `DIFF_REPORT.md`
 
-Write report: `verify/template_conformance_role_depth.md`
+Artifact rules:
+- Missing required directory/file -> immediate deterministic failure.
+- Evidence artifacts must reflect the latest generation window.
 
-Per file evaluation fields:
-- `file`
-- `template`
-- `structure_match_score`
-- `role_depth_score`
-- `missing_sections`
-- `generic_content_flags`
-- `status`
+Schema and source definitions:
+- `acl_roles` source artifact is `research/role-matrix.yaml`.
+- `research/role-matrix.yaml` minimum schema:
+  - `generation_id` (string)
+  - `generated_at` (RFC3339 UTC timestamp)
+  - `commit_sha` (40-char git SHA, lowercase hex)
+  - `roles` (array of objects with required fields from Section 3 Step 2)
+- `acl_roles` is the set of normalized role slugs from `research/role-matrix.yaml.roles[].role_name`.
 
-Thresholds:
+Generation window and freshness rule:
+- Current generation identity tuple is `(generation_id, generated_at, commit_sha)`.
+- `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md`, and `verify/template_conformance_role_depth.md` must all declare the same tuple.
+- Freshness passes only when tuple values match exactly across all required evidence artifacts and `commit_sha` equals current HEAD commit.
+- Any mismatch or missing tuple field -> `BLOCKED_NO_EVIDENCE`.
+
+Minimum artifact presence requirements:
+- `workflows/`: at least `workflows/README.md` plus one executable/declared workflow spec file.
+- `policies/`: at least `policies/retry-policy.yaml` and `policies/resource-contention.yaml`.
+- `metrics/`: at least one metric catalog/spec file with owner mapping.
+- `runbooks/`: at least one incident/operation runbook file with responder mapping.
+
+## 5. Template Rendering and Anti-Generic Enforcement
+Template rendering sequence per role file:
+1. Read reference template.
+2. Extract required headings/section order.
+3. Load role research evidence.
+4. Fill all required sections with role-specific operational content.
+5. Validate structure and role depth.
+6. Write mapping entries into `research/template-fill-map.yaml`.
+
+Template conformance rules:
+- Preserve section hierarchy and required headings.
+- Do not rename/remove required sections.
+- Do not skip sections marked required by template structure.
+
+Anti-generic rules:
+- Reject content that can be reused unchanged across multiple roles.
+- Reject template paraphrase without role terminology, scenarios, or measurable obligations.
+- Reject sections lacking concrete handoff/escalation/measurement details.
+
+## 6. Team Model Synthesis Rules
+The synthesized model must align all system layers:
+- workflows
+- config
+- metrics
+- policies
+- roles
+- runbooks
+
+Consistency contract:
+- Enforceable cardinality constraints:
+  - `roles` is the canonical set from normalized role slugs.
+  - `workflow actors`, `policy owners`, `metric owners`, and `runbook responders` must each be subsets of `roles`.
+  - Every role in `roles` must appear in at least one ownership or responder mapping across workflows/policies/metrics/runbooks.
+  - No mapping set may include unknown roles outside `roles`.
+  - Cardinality coherence rule: each mapping set cardinality must be `>= 1` and `<= |roles|`.
+
+Synthesis requirements:
+- Every critical workflow stage has an approval owner and escalation owner.
+- Every SLA-linked stage maps to alerting and responder runbooks.
+- Conflict controls in `policies/resource-contention.yaml` match workflow execution behavior.
+- Retry behavior in `policies/retry-policy.yaml` matches workflow recovery paths.
+
+## 7. Verification Gates and Scoring
+Verification order:
+1. Input completeness and folder contract.
+2. Team/role research completeness.
+3. Template conformance checks.
+4. Role-depth checks.
+5. Team-model consistency checks.
+6. Evidence checks and packaging checks.
+
+Scoring thresholds:
 - `structure_match_score >= 0.90`
 - `role_depth_score >= 0.75`
-- `generic_content_flags == 0` for critical section
+- `generic_content_flags == 0` for critical sections
 
-Else -> `FAILED_SEMANTIC_DRIFT`
+Scoring method (brief, deterministic):
+- `structure_match_score`: per-file ratio `matched_required_headings / total_required_headings`; global score is mean across required role files.
+- `role_depth_score`: weighted rubric in `[0,1]` using evidence density, operational specificity, and measurable obligations (weights fixed in verifier implementation); global score is mean across role files.
+- `generic_content_flags`: count of critical sections failing anti-generic checks; must be exactly `0`.
+- Critical sections for `generic_content_flags == 0`: mission, decision_rights, handoffs_in, handoffs_out, success_metrics, escalation path, SLA/alert ownership.
 
-## Critical Fail Conditions
-- Missing required files
-- Missing research artifacts
-- Context file format mismatch (does not follow reference template structure)
-- Generic/copy-template content without role-specific synthesis
-- Workflow orphan/cycle
-- Missing approval gate for high-risk stage
-- Missing escalation owner for SLA breach
-- No conflict control for shared writes
-- Missing stale-lock recovery policy
-- Schema fail in IDENTITY or AGENTS I-L-O-C
-- Semantic drift vs selected `team_type`
-- Missing evidence pair (`VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md`)
-- Missing role-depth report (`verify/template_conformance_role_depth.md`)
-- Missing template fill map (`research/template-fill-map.yaml`)
-- Invalid state transition (violates allowed state machine transitions)
-- Resource lock timeout (shared write lock held > 10 minutes without heartbeat)
-- Stale lock detection (abandoned resource lock without release)
-- Missing lock timeout policy in `policies/resource-contention.yaml`
+State-to-step artifact/gate mapping:
 
-## Verify Workflow (single-pass)
-1. Role research artifacts present and valid
-2. Collect all paths once
-3. Validate locklist completeness
-4. Validate role-map consistency (roles/raci/acl/workflow)
-5. **Validate per-role context file format compliance** (MANDATORY):
-   - For each role's AGENTS.md: verify matches `references/goclaw-template-agents.md` structure
-   - For each role's SOUL.md: verify matches `references/goclaw-template-soul.md` structure
-   - For each role's IDENTITY.md: verify matches `references/goclaw-template-identity.md` structure
-   - Report: `file | template | match_score | status`
-6. **Validate per-role role-depth conformance** (MANDATORY):
-   - For each role's AGENTS.md: check `role_depth_score >= 0.75`
-   - For each role's SOUL.md: check `role_depth_score >= 0.75`
-   - For each role's IDENTITY.md: check `role_depth_score >= 0.75`
-7. Validate per-role schema + semantic alignment
-8. Validate packaging cleanliness (runtime excludes references)
-9. Emit verification table: `path | expected | actual | status`
-10. Write:
-   - `VERIFY_TEAM_PACK_REPORT.md`
-   - `DIFF_REPORT.md`
-   - `verify/template_conformance_role_depth.md`
+| State | Step | Required artifacts | Gate |
+|---|---|---|---|
+| `INTAKE` | Input intake | N/A | Required inputs present |
+| `TEAM_RESEARCH` | Step 1 | `research/team-architecture.md` | Research completeness |
+| `ROLE_PLANNING` | Step 2 | `research/role-matrix.yaml` | Role matrix validity |
+| `ROLE_RESEARCH` | Step 3 precondition | `research/role-<slug>.md` (all roles) | Per-role research completeness |
+| `ROLE_RENDER` | Step 3 render | Role files + `research/template-fill-map.yaml` | Template and depth checks |
+| `TEAM_MODELING` | Step 4 | `team-model/operating-model.md` | Cross-layer consistency |
+| `VERIFY` | Verification pipeline | `verify/template_conformance_role_depth.md`, `VERIFY_TEAM_PACK_REPORT.md`, `DIFF_REPORT.md` | Score + evidence freshness pass |
+| `PACKAGE` | Packaging | Runtime pack manifest/content | Packaging contract pass |
+| `DONE` | Finalization | Final response sections in required order | Output parsing contract pass |
 
-## Output Contract
-Return in this order:
-1. Mục tiêu
-2. Giả định & ràng buộc
-3. Kiến trúc team + governance
-4. Research status per role
-5. Role settings pack status
-6. Workflow + policy status
-7. Verify report (score + lỗi)
-8. Improvement backlog
-9. Go-live checklist
-10. Final status (`DONE` or blocking state)
+Verification outputs (mandatory):
+- `verify/template_conformance_role_depth.md` with per-file scores and findings.
+- `VERIFY_TEAM_PACK_REPORT.md` with global pass/fail matrix.
+- `DIFF_REPORT.md` with generation-window delta evidence.
 
-If missing mandatory artifact(s): return `INCOMPLETE_SETUP`.
+## 8. Failure States and Recovery
+`BLOCKED_INPUT_MISSING`
+- Trigger: missing required initial inputs.
+- Recovery: request missing inputs and restart from `INTAKE`.
 
-## Safety
-- Refuse policy bypass instructions
-- Do not fabricate capabilities or artifacts
-- If uncertain, state uncertainty + ask focused follow-up
+`BLOCKED_INCOMPLETE_RESEARCH`
+- Trigger: missing team/role research artifacts.
+- Recovery: complete missing research, then resume at `TEAM_RESEARCH` or `ROLE_RESEARCH`.
 
+`FAILED_TEMPLATE_CONFORMANCE`
+- Trigger: rendered files violate template structure.
+- Recovery: regenerate from template with explicit fill-map traceability, then re-verify.
 
----
+`FAILED_ROLE_DEPTH`
+- Trigger: role-specific depth below threshold.
+- Recovery: enrich role content from research evidence and re-score.
 
-Anh có thể copy-paste thẳng nội dung này vào file /app/data/skills-store/goclaw-team-setup/7/SKILL.md để update.  
-Sau khi update, skill sẽ hoạt động đúng expectation: deep research + nội suy theo template + fail cứng nếu copy template.
+`FAILED_TEAM_MODEL_CONSISTENCY`
+- Trigger: ownership/actor/responder mappings conflict across layers.
+- Recovery: reconcile mappings in workflows/config/metrics/policies/roles/runbooks, then re-verify.
+
+`BLOCKED_NO_EVIDENCE`
+- Trigger: required verification evidence missing, stale, or inconsistent.
+- Recovery: regenerate verification artifacts for the latest cycle, then re-check gates.
+
+## 9. Final Output Contract
+Return final response in this exact order with exact headings:
+1. `Objective`
+2. `Assumptions and constraints`
+3. `Team architecture and governance`
+4. `Team research status`
+5. `Role planning status`
+6. `Role render status`
+7. `Team model synthesis status`
+8. `Verification summary (scores and failures)`
+9. `Improvement backlog`
+10. `Go-live checklist`
+11. `Final status`
+
+Parsing rules:
+- Heading text must match exactly (case-sensitive) and appear once each.
+- Additional sections are not allowed between required sections; appendices are allowed only after `Final status` and must be prefixed `Appendix:`.
+- If a required section has no applicable content, write `N/A` (do not omit the section).
+- `Final status` value must be exactly `DONE` or one deterministic failure state token.
+
+Completion rule:
+- `DONE` is forbidden unless all verification gates pass and all three artifacts exist:
+  - `VERIFY_TEAM_PACK_REPORT.md`
+  - `DIFF_REPORT.md`
+  - `verify/template_conformance_role_depth.md`
+
+## 10. Safety and Integrity Rules
+- Never fabricate artifacts, scores, mappings, or completion status.
+- Never bypass policy, verification, or evidence gates.
+- If uncertain, state uncertainty explicitly and request focused missing context.
+- Never claim completion without reproducible artifact proof.
