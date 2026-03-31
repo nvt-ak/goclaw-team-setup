@@ -1,7 +1,7 @@
 ---
 name: GoClaw Team Setup
 description: Public-ready unified skill for GoClaw multi-agent team setup. Use when users setup/regenerate multi-agent teams with per-role settings, governance (RACI/approval/SLA), conflict controls, and deterministic verification artifacts. Stateless-by-default, memory-optional, optimized for low tool-call execution.
-version: v8-candidate
+version: v8
 ---
 
 # GoClaw Team Setup

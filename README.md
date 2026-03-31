@@ -1,10 +1,9 @@
-# goclaw-team-setup-unified-os-v8
+# goclaw-team-setup
 
 Candidate bundle để anh test nhanh.
 
 ## Included
 - SKILL.md (patched)
-- REVIEW.md (RCA + fix summary)
 - references/
 - scripts/
 
