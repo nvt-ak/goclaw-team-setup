@@ -27,3 +27,8 @@ agent-settings/*
 !references/
 references/*
 !references/**
+
+# Allow verifier scripts (root is ignored by /*).
+!scripts/
+scripts/*
+!scripts/**
