@@ -11,3 +11,19 @@ docs/*
 docs/superpowers/*
 !docs/superpowers/specs/
 !docs/superpowers/specs/**
+!docs/superpowers/plans/
+!docs/superpowers/plans/**
+
+# Allow agent-settings bundle (root is ignored by /*).
+!agent-settings/
+agent-settings/*
+!agent-settings/README.md
+!agent-settings/templates/
+!agent-settings/templates/**
+!agent-settings/roles/
+!agent-settings/roles/**
+
+# Allow references bundle (root is ignored by /*).
+!references/
+references/*
+!references/**

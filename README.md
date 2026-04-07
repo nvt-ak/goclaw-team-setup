@@ -3,10 +3,12 @@
 Candidate bundle để anh test nhanh.
 
 ## Included
-- SKILL.md (patched)
-- references/
-- scripts/
+- SKILL.md (patched, v12+)
+- `agent-settings/templates/` — canonical role context templates
+- references/ — legacy mirror / transition fallback
+- config/, metrics/, policies/, runbooks/, workflows/, roles/
+- scripts/ (if present)
 
 ## Notes
-- Runtime package mặc định vẫn exclude `references/` theo invariant đã chốt.
+- Runtime package mặc định exclude nguồn template (`agent-settings/templates/` và `references/`) theo `verify/package_manifest.yaml` → `excludes_references: true`.
 - Bundle này dùng để review logic skill và tái đóng gói thử nghiệm.

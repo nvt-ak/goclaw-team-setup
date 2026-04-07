@@ -225,4 +225,3 @@ End state:
 ## Open questions (none)
 
 All naming, structure, and evidence gates were approved during brainstorming.
-

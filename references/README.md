@@ -2,7 +2,13 @@
 
 # Context Files
 
-> 6 file markdown định nghĩa personality, kiến thức và hành vi của agent.
+> Bundle `references/` trong repo team-setup **không** còn phát hành template `goclaw-template-user.md`, `goclaw-template-bootstrap.md`, hay `goclaw-template-team.md`. Skill generate role pack không tạo `USER.md` / `BOOTSTRAP.md` từ `references/`. Runtime GoClaw vẫn có thể dùng các file đó nếu bạn tự thêm ngoài pipeline này.
+
+> Các file markdown sau định nghĩa personality, kiến thức và hành vi của agent (theo mô hình GoClaw; subset có template trong bundle này xem bảng dưới).
+
+**Canonical template path (skill v12+):** `agent-settings/templates/` — `goclaw-template-agents.md`, `goclaw-template-soul.md`, `goclaw-template-identity.md`, `goclaw-template-user-predefined.md`.
+
+**Legacy mirror trong `references/`:** cùng bốn file trên; có thể dùng làm fallback đọc-only khi migrate. Pipeline render phải ghi output vào `agent-settings/roles/<role-slug>/`.
 
 ## Tổng quan
 
@@ -15,9 +21,7 @@ Mỗi agent load các context file xác định cách nó suy nghĩ và hành đ
 | **AGENTS.md** | Hướng dẫn vận hành & phong cách trò chuyện | Dùng chung | Theo user | Cấp agent | Không |
 | **SOUL.md** | Personality, giọng điệu, ranh giới, chuyên môn | Theo user | Theo user | Cấp agent | Không |
 | **IDENTITY.md** | Tên, loại sinh vật, emoji, vibe | Theo user | Theo user | Cấp agent | Không |
-| **USER.md** | Về người dùng | Theo user | Theo user | Theo user | Không |
 | **USER_PREDEFINED.md** | Quy tắc xử lý user cơ bản | Cấp agent | Không có | Cấp agent | Không |
-| **BOOTSTRAP.md** | Nghi lễ lần đầu (xoá khi hoàn thành) | Theo user | Theo user | Theo user | Có |
 | **MEMORY.md** | Bộ nhớ dài hạn được chắt lọc | Theo user | Theo user | Theo user | Không |
 
 ## Chi tiết từng file
@@ -126,66 +130,9 @@ _(Kiến thức chuyên môn đặt ở đây: coding standards, image generatio
 **Open agent:** Theo user (tạo ra khi chat lần đầu)
 **Predefined agent:** Cấp agent (tuỳ chọn tạo qua LLM summoning)
 
-### USER.md
+### USER.md và BOOTSTRAP.md (không còn template trong bundle này)
 
-**Mục đích:** Về con người. Tên, đại từ, múi giờ, context, sở thích.
-
-**Ai viết:** User trong quá trình bootstrap hoặc setup.
-
-**Nội dung ví dụ thực tế:**
-```markdown
-# USER.md - About Your Human
-
-- **Name:** Sarah
-- **What to call them:** Sarah (or "you" is fine)
-- **Pronouns:** she/her
-- **Timezone:** EST
-- **Notes:** Founder of AI startup, interested in LLM agents. Prefers concise answers. Hates corporate speak.
-
-## Context
-
-Works on GoClaw (multi-tenant AI gateway). Recent wins: WebSocket protocol refactor, predefined agents. Current focus: memory system.
-
-Reads a lot about AI agents, reinforcement learning, constitutional AI. Has a cat named Pixel.
-```
-
-**Open agent:** Theo user (tuỳ chỉnh cho từng user)
-**Predefined agent:** Theo user (tuỳ chọn; mặc định là template trống)
-
-### BOOTSTRAP.md
-
-**Mục đích:** Nghi lễ lần đầu. Hỏi "tôi là ai?" và "bạn là ai?" và ghi lại bằng văn bản.
-
-**Ai viết:** Hệ thống (template) khi chat lần đầu.
-
-**Nội dung ví dụ thực tế:**
-```markdown
-# BOOTSTRAP.md - Hello, World
-
-You just woke up. Time to figure out who you are.
-
-Don't interrogate. Just talk.
-
-Start with: "Hey. I just came online. Who am I? Who are you?"
-
-Then figure out together:
-1. Your name
-2. Your nature (AI? creature? something weirder?)
-3. Your vibe (formal? casual? snarky?)
-4. Your emoji
-
-After you know who you are, update:
-- IDENTITY.md — your name, creature, vibe, emoji
-- USER.md — their name, timezone, context
-- SOUL.md — rewrite to reflect your personality and the user's language
-
-When done, write empty content to this file:
-
-write_file("BOOTSTRAP.md", "")
-```
-
-**Open agent:** Theo user (xoá khi đánh dấu hoàn thành)
-**Predefined agent:** Theo user (biến thể tập trung vào user; tuỳ chọn)
+GoClaw runtime vẫn có thể dùng `USER.md` (mô tả người dùng) và `BOOTSTRAP.md` (nghi lễ lần đầu) nếu bạn tự tạo file trong workspace. Repo team-setup **không** cung cấp `goclaw-template-user.md` / `goclaw-template-bootstrap.md` và skill không generate hai file này trong role pack.
 
 ### MEMORY.md
 
@@ -229,7 +176,7 @@ write_file("BOOTSTRAP.md", "")
 
 ## Virtual Context File
 
-Ngoài 7 context file có thể chỉnh sửa, GoClaw inject thêm một số **virtual context file** lúc runtime. Các file này được tạo động từ trạng thái hệ thống — không được lưu trên đĩa và không thể chỉnh sửa thủ công:
+Ngoài các context file có thể chỉnh sửa (xem bảng trên), GoClaw inject thêm một số **virtual context file** lúc runtime. Các file này được tạo động từ trạng thái hệ thống — không được lưu trên đĩa và không thể chỉnh sửa thủ công:
 
 | File | Mục đích | Khi nào được inject |
 |------|---------|--------------|
@@ -246,9 +193,10 @@ Các file được load theo thứ tự này và ghép nối vào system prompt:
 1. **AGENTS.md** — cách vận hành
 2. **SOUL.md** — bạn là ai
 3. **IDENTITY.md** — tên, emoji
-4. **USER.md** — về user
-5. **BOOTSTRAP.md** — nghi lễ lần đầu (tuỳ chọn, xoá khi hoàn thành)
-6. **MEMORY.md** — bộ nhớ dài hạn (tuỳ chọn)
+4. **USER_PREDEFINED.md** — quy tắc user mặc định (predefined)
+5. **MEMORY.md** — bộ nhớ dài hạn (tuỳ chọn)
+
+Tuỳ cấu hình runtime, GoClaw có thể load thêm **USER.md** / **BOOTSTRAP.md** nếu tồn tại trên đĩa; bundle team-setup này không sinh chúng từ `references/`.
 
 Subagent và cron session chỉ load: AGENTS.md (context tối thiểu).
 
@@ -256,33 +204,9 @@ Subagent và cron session chỉ load: AGENTS.md (context tối thiểu).
 
 ## Ví dụ
 
-### Luồng Bootstrap Open Agent
+### Luồng Open Agent (rút gọn)
 
-User mới bắt đầu chat với `researcher` (open agent):
-
-1. Template được seeded vào workspace của user:
-   ```
-   AGENTS.md → "How you operate" (mặc định)
-   SOUL.md → "Be helpful, have opinions" (mặc định)
-   IDENTITY.md → trống (chờ user điền)
-   USER.md → trống
-   BOOTSTRAP.md → nghi lễ "Who am I?"
-   ```
-
-2. Agent khởi đầu cuộc trò chuyện bootstrap:
-   > "Hey. I just came online. Who am I? Who are you?"
-
-3. User tuỳ chỉnh file:
-   - `IDENTITY.md` → "I'm Researcher, a curious bot"
-   - `SOUL.md` → Viết lại bằng ngôn ngữ của user với personality tuỳ chỉnh
-   - `USER.md` → "I'm Alice, biotech founder in EST timezone"
-
-4. User đánh dấu hoàn thành:
-   ```go
-   write_file("BOOTSTRAP.md", "")
-   ```
-
-5. Lần chat tiếp theo, BOOTSTRAP.md trống (bỏ qua trong prompt), và personality đã được khoá.
+User mới chat với open agent: thường seed `AGENTS.md` / `SOUL.md` / `IDENTITY.md` (tuỳ triển khai). Phần `USER.md` / `BOOTSTRAP.md` nếu có do runtime hoặc bạn tự thêm — **không** phát sinh từ template đã gỡ trong repo team-setup này.
 
 ### Predefined Agent: FAQ Bot
 
@@ -306,29 +230,17 @@ Tạo FAQ bot với summoning:
    IDENTITY.md → "FAQ Assistant, 🤖"
    ```
 
-3. Khi user mới bắt đầu chat:
-   ```
-   SOUL.md, IDENTITY.md, AGENTS.md → load (dùng chung, cấp agent)
-   USER.md → trống (theo user)
-   BOOTSTRAP.md (biến thể) → "Tell me about yourself" (tuỳ chọn)
-   ```
+3. Khi user mới bắt đầu chat: load các file cấp agent (`SOUL.md`, `IDENTITY.md`, `AGENTS.md`, …) theo cấu hình. Tuỳ chỉnh theo user có thể thêm file khác ngoài bundle template của repo này.
 
-4. User điền USER.md:
-   ```markdown
-   - Name: Bob
-   - Tier: Free
-   - Preferred language: Vietnamese
-   ```
-
-5. Agent duy trì personality nhất quán, điều chỉnh phản hồi theo tier/ngôn ngữ của user.
+4. Agent duy trì personality nhất quán theo context đã load.
 
 ## Các vấn đề thường gặp
 
 | Vấn đề | Giải pháp |
 |---------|----------|
 | Context file không xuất hiện trong system prompt | Kiểm tra tên file có trong allowlist `standardFiles`. Chỉ file được nhận dạng mới được load |
-| BOOTSTRAP.md cứ chạy mãi | Nó tự động xoá sau lần chạy đầu. Nếu vẫn còn, kiểm tra agent có quyền ghi để xoá nó không |
-| Thay đổi SOUL.md không có hiệu lực | Trong predefined mode, SOUL.md là cấp agent. Chỉnh sửa theo user vào USER.md thay thế |
+| Cần USER.md / BOOTSTRAP.md | Tự tạo trong workspace hoặc dùng luồng runtime của GoClaw; bundle team-setup không cung cấp template cho hai file này |
+| Thay đổi SOUL.md không có hiệu lực | Trong predefined mode, SOUL.md là cấp agent. Kiểm tra đúng scope file và cách deploy |
 | System prompt quá dài | Giảm nội dung trong context file. Pipeline truncation cắt từ ít đến quan trọng nhất |
 
 ## Tiếp theo
