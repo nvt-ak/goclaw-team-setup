@@ -3,3 +3,11 @@ __pycache__/
 .DS_Store
 docs/
 /*
+
+# Allow superpowers design specs to be versioned.
+!docs/
+docs/*
+!docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/specs/**
