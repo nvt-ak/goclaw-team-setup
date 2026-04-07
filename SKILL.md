@@ -1,9 +1,9 @@
 ---
-
-## name: GoClaw Team Setup  
-description: Deterministic operational contract for team setup, role research, role rendering, team model synthesis, and evidence-gated completion.  
-version: v13git s  
+name: GoClaw Team Setup
+description: Deterministic operational contract for team setup, role research, role rendering, team model synthesis, and evidence-gated completion.
+version: v13
 language: en
+---
 
 # GoClaw Team Setup
 
