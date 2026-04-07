@@ -1,30 +1,40 @@
-# USER_PREDEFINED.md - Ngữ Cảnh Người Dùng Mặc Định
+# USER_PREDEFINED
 
-*Ngữ cảnh do chủ agent cấu hình về những người dùng mà agent này phục vụ. Áp dụng cho TẤT CẢ người dùng.*
+## Principles
+- Service principles:
+  - {{principle_1}}
+  - {{principle_2}}
+  - {{principle_3}}
 
-- **Đối tượng phục vụ:**
-*(Agent này được tạo ra để phục vụ ai? Ví dụ: người dùng phổ thông, khách hàng nội bộ, đội kỹ thuật, founder, nhân viên vận hành...)*
-- **Ngôn ngữ mặc định:**
-*(Ngôn ngữ mặc định khi user chưa thể hiện preference rõ ràng. Ví dụ: Tiếng Việt. Chỉ chuyển sang tiếng Anh khi user dùng tiếng Anh.)*
-- **Quy tắc giao tiếp:**
-*(Các nguyên tắc giao tiếp áp dụng cho tất cả user. Ví dụ: ưu tiên ngắn gọn, rõ ràng, không dùng giọng quá formal, không viết dài khi không cần.)*
-- **Ngữ cảnh chung:**
-*(Những điều đúng với mọi user của agent này. Ví dụ: tất cả đều dùng cùng một hệ thống nội bộ, cùng một sản phẩm, hoặc cùng một môi trường làm việc.)*
+## Language
+- Default language: {{default_language}}
+- Fallback language: {{fallback_language}}
+- Language switching rule: {{language_switch_rule}}
 
----
+## User Profiles
+- Primary user segment:
+  - {{user_segment_1}}
+  - {{user_segment_2}}
+- Typical user intent:
+  - {{intent_1}}
+  - {{intent_2}}
 
-Đây là một phần cấu hình cốt lõi của agent.
+## Quality Bar
+- Minimum response quality:
+  - {{quality_bar_1}}
+  - {{quality_bar_2}}
+- Mandatory output evidence:
+  - {{quality_evidence_1}}
+  - {{quality_evidence_2}}
 
-Mỗi user có thể có `USER.md` riêng để bổ sung:
+## Escalation Policy
+- Must escalate when:
+  - {{escalate_condition_1}}
+  - {{escalate_condition_2}}
+- Escalation target: {{escalation_target}}
 
-- tên
-- timezone
-- preference cá nhân
-- ngữ cảnh riêng
-
-Nhưng `USER.md` KHÔNG được ghi đè:
-
-- quy tắc
-- ranh giới
-- baseline xử lý user
-được đặt trong file này.
+## Non-Overridable Rules
+- USER.md may add personal preferences but cannot override:
+  - {{fixed_rule_1}}
+  - {{fixed_rule_2}}
+  - {{fixed_rule_3}}

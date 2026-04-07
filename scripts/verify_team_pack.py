@@ -83,6 +83,19 @@ def extract_h2_h3(path: Path) -> list[str]:
     return out
 
 
+def extract_h2_sections(content: str) -> dict[str, str]:
+    sections: dict[str, list[str]] = {}
+    current = ""
+    for line in content.splitlines():
+        if line.startswith("## "):
+            current = normalize_heading(line[3:])
+            sections[current] = []
+            continue
+        if current:
+            sections[current].append(line)
+    return {k: "\n".join(v).strip() for k, v in sections.items()}
+
+
 def structure_match_ordered(required: list[str], got: list[str]) -> tuple[list[str], float]:
     """Count required headings matched in order (subsequence), normalized equality per heading."""
     matched: list[str] = []
@@ -118,6 +131,104 @@ def _stub_depth_score(content: str) -> float:
 def _stub_generic_flags(content: str) -> int:
     """v0: flag if body is extremely thin."""
     return 1 if word_count(content) < 40 else 0
+
+
+def _agents_professional_findings(role_slug: str, content: str) -> list[str]:
+    findings: list[str] = []
+    sections = extract_h2_sections(content)
+    required_sections = [
+        "Mission",
+        "Scope and Non-Goals",
+        "Inputs and Signals",
+        "Decision Rights",
+        "Operating Procedure",
+        "Escalation and Exception Handling",
+        "Handoffs",
+        "Success Metrics",
+        "Quality Bar and Review Checklist",
+        "Anti-Patterns",
+    ]
+    for sec in required_sections:
+        if sec not in sections:
+            findings.append(f"missing required AGENTS section: {sec}")
+
+    for sec in ("Mission", "Decision Rights", "Handoffs", "Success Metrics"):
+        if sec in sections and word_count(sections[sec]) < 18:
+            findings.append(f"section too short for professional depth: {sec}")
+
+    if "Operating Procedure" in sections:
+        sop = sections["Operating Procedure"]
+        step_count = len(re.findall(r"(?m)^\s*\d+\.\s+", sop))
+        if step_count < 4:
+            findings.append("Operating Procedure must contain at least 4 numbered steps")
+
+    if "Handoffs" in sections:
+        h = sections["Handoffs"]
+        if "Inbound" not in h or "Outbound" not in h:
+            findings.append("Handoffs must include both Inbound and Outbound")
+        if role_slug in h and re.search(rf"(?i)from\s+{re.escape(role_slug)}", h):
+            findings.append("Handoffs contains self-referential inbound mapping")
+
+    if "Success Metrics" in sections:
+        m = sections["Success Metrics"]
+        metric_count = len(re.findall(r"(?m)^\s*-\s*Metric:", m))
+        if metric_count < 3:
+            findings.append("Success Metrics must define at least 3 metrics")
+
+    return findings
+
+
+def _identity_professional_findings(content: str) -> list[str]:
+    findings: list[str] = []
+    sections = extract_h2_sections(content)
+    required = [
+        "Role",
+        "Team Type",
+        "Core Responsibility",
+        "Operational Boundary",
+        "Escalation Contract",
+        "Interface Signature",
+    ]
+    for sec in required:
+        if sec not in sections:
+            findings.append(f"missing required IDENTITY section: {sec}")
+    for sec in ("Core Responsibility", "Operational Boundary", "Escalation Contract", "Interface Signature"):
+        if sec in sections and word_count(sections[sec]) < 14:
+            findings.append(f"section too short for professional depth: {sec}")
+    return findings
+
+
+def _soul_professional_findings(content: str) -> list[str]:
+    findings: list[str] = []
+    sections = extract_h2_sections(content)
+    required = ["Tone", "Communication Rules", "Reasoning Style", "Domain Focus", "Boundaries"]
+    for sec in required:
+        if sec not in sections:
+            findings.append(f"missing required SOUL section: {sec}")
+    for sec in ("Communication Rules", "Reasoning Style", "Boundaries"):
+        if sec in sections and word_count(sections[sec]) < 14:
+            findings.append(f"section too short for professional depth: {sec}")
+    return findings
+
+
+def _user_predefined_professional_findings(content: str) -> list[str]:
+    findings: list[str] = []
+    sections = extract_h2_sections(content)
+    required = [
+        "Principles",
+        "Language",
+        "User Profiles",
+        "Quality Bar",
+        "Escalation Policy",
+        "Non-Overridable Rules",
+    ]
+    for sec in required:
+        if sec not in sections:
+            findings.append(f"missing required USER_PREDEFINED section: {sec}")
+    for sec in ("Principles", "Quality Bar", "Escalation Policy", "Non-Overridable Rules"):
+        if sec in sections and word_count(sections[sec]) < 12:
+            findings.append(f"section too short for professional depth: {sec}")
+    return findings
 
 
 def git_head(root: Path) -> str:
@@ -384,6 +495,24 @@ def main() -> int:
                 tmpl_lines.append(f"  - role_depth_score_stub: {ds:.4f}")
                 tmpl_lines.append(f"  - generic_content_flags_stub: {gf}")
 
+                professional_findings: list[str] = []
+                if fn == "AGENTS.md":
+                    professional_findings = _agents_professional_findings(slug, body)
+                elif fn == "IDENTITY.md":
+                    professional_findings = _identity_professional_findings(body)
+                elif fn == "SOUL.md":
+                    professional_findings = _soul_professional_findings(body)
+                elif fn == "USER_PREDEFINED.md":
+                    professional_findings = _user_predefined_professional_findings(body)
+
+                if professional_findings:
+                    generic_flags_total += len(professional_findings)
+                    tmpl_lines.append("  - professional_findings:")
+                    for pf in professional_findings:
+                        tmpl_lines.append(f"    - {pf}")
+                else:
+                    tmpl_lines.append("  - professional_findings: []")
+
                 template_map[key] = {
                     "template_path": str(tpath.relative_to(root)).replace("\\", "/"),
                     "required_headings": req,
@@ -391,6 +520,7 @@ def main() -> int:
                     "structure_match_score": round(score, 4),
                     "role_depth_score_stub": round(ds, 4),
                     "generic_content_flags_stub": gf,
+                    "professional_findings": professional_findings,
                 }
             tmpl_lines.append("")
 

@@ -1,37 +1,37 @@
-# IDENTITY.md - Tôi Là Ai?
+# IDENTITY
 
-_Đây là danh tính cụ thể của bạn. Ngắn gọn, rõ ràng._
+## Role
 
-- **Name:**
-  _(Tên hiển thị của bạn — ngắn, dễ gọi, dễ nhớ)_
+{{role_name}}
 
-- **Creature:**
-  _(Bạn là gì? AI, trợ lý, hệ thống, thực thể… — chỉ để tạo flavor, không bắt buộc)_
+## Team Type
 
-- **Purpose:**
-  _(Bạn tồn tại để làm gì? Mô tả ngắn gọn nhiệm vụ chính và phạm vi hoạt động)_
+{{team_type}}
 
-- **Vibe:**
-  _(Bạn toát ra cảm giác gì? Ví dụ: rõ ràng, thân thiện, sắc bén, bình tĩnh…)_
+## Core Responsibility
 
-- **Emoji:**
-  _(Một emoji đại diện — nên đơn giản, dễ nhìn trong UI)_
+{{core_responsibility}}
 
-- **Avatar:**
-  _(Đường dẫn ảnh: workspace-relative, URL https, hoặc data URI — có thể để trống)_
+## Operational Boundary
 
----
+- Owns:
+  - {{owns_1}}
+  - {{owns_2}}
+- Does not own:
+  - {{not_owns_1}}
+  - {{not_owns_2}}
 
-Đây không chỉ là metadata.
+## Escalation Contract
 
-Nó là cách bạn tự giới thiệu, cách bạn được nhìn nhận,
-và cách bạn định vị bản thân trong mọi tương tác.
+- Escalates to: {{escalation_owner}}
+- Escalation SLA: {{escalation_sla}}
+- Escalation trigger examples:
+  - {{escalation_trigger_1}}
+  - {{escalation_trigger_2}}
 
----
+## Interface Signature
 
-## Ghi chú
+- Input contract: {{input_contract}}
+- Output contract: {{output_contract}}
+- Required evidence on handoff: {{handoff_evidence}}
 
-- Giữ ngắn gọn — đây không phải nơi viết hướng dẫn
-- Không thêm logic vận hành (đã có AGENTS.md)
-- Không mô tả personality dài dòng (đã có SOUL.md)
-- Name và Emoji sẽ hiển thị trực tiếp trong UI
