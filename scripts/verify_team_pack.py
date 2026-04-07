@@ -83,6 +83,21 @@ def extract_h2_h3(path: Path) -> list[str]:
     return out
 
 
+def structure_match_ordered(required: list[str], got: list[str]) -> tuple[list[str], float]:
+    """Count required headings matched in order (subsequence), normalized equality per heading."""
+    matched: list[str] = []
+    gi = 0
+    for h in required:
+        while gi < len(got) and got[gi] != h:
+            gi += 1
+        if gi < len(got) and got[gi] == h:
+            matched.append(h)
+            gi += 1
+    if not required:
+        return [], 1.0
+    return matched, len(matched) / len(required)
+
+
 def word_count(text: str) -> int:
     return len(re.findall(r"\b\w+\b", text))
 
@@ -357,16 +372,7 @@ def main() -> int:
                 tmpl_lines.append(f"  - template: `{tpath.relative_to(root)}`")
                 tmpl_lines.append(f"  - required_headings ({len(req)}): {req}")
                 tmpl_lines.append(f"  - rendered_headings ({len(got)}): {got}")
-                if not req:
-                    score = 1.0
-                    matched: list[str] = []
-                else:
-                    req_set = list(req)
-                    matched = []
-                    for h in req_set:
-                        if h in got:
-                            matched.append(h)
-                    score = len(matched) / len(req_set)
+                matched, score = structure_match_ordered(req, got)
                 structure_scores.append(score)
                 tmpl_lines.append(f"  - structure_match_score: {score:.4f}")
 
