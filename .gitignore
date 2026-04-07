@@ -23,11 +23,6 @@ agent-settings/*
 !agent-settings/roles/
 !agent-settings/roles/**
 
-# Allow references bundle (root is ignored by /*).
-!references/
-references/*
-!references/**
-
 # Allow verifier scripts (root is ignored by /*).
 !scripts/
 scripts/*

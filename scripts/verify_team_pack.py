@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mechanical verifier for GoClaw team-pack layout (SKILL.md v12).
+Mechanical verifier for GoClaw team-pack layout (SKILL.md v13).
 
 Writes:
   verify/structure_conformance.md
@@ -164,7 +164,7 @@ def load_role_slugs(role_matrix_path: Path) -> tuple[list[str], dict[str, Any] |
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Verify GoClaw team-pack (v12) and write verify/* artifacts.")
+    ap = argparse.ArgumentParser(description="Verify GoClaw team-pack (v13) and write verify/* artifacts.")
     ap.add_argument("--root", type=Path, default=Path("."), help="team-pack root directory")
     ap.add_argument("--dry-run", action="store_true", help="do not write files")
     ap.add_argument(
@@ -440,7 +440,7 @@ def main() -> int:
         "generation_id": gen_id or "unset",
         "generated_at": gen_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "commit_sha": commit_sha or ("0" * 40),
-        "excludes_references": True,
+        "exclude_template_sources": True,
         "layout_directories": list(LAYOUT_DIRS),
         "layout_root_files_mandatory": ["VERIFY_TEAM_PACK_REPORT.md", "DIFF_REPORT.md"],
         "team_settings": {"directories_required": list(TEAM_SETTINGS_DIRS)},
